@@ -2,8 +2,10 @@
 
 import sys
 import cv2
+import skvideo.io
 import h5py
 import numpy as np
+import matplotlib.pyplot as plt
 
 # Parameters for Shi-Tomasi corner detection
 ST_PARAMS = dict(maxCorners=100, qualityLevel=0.3, minDistance=7, blockSize=7)
@@ -13,39 +15,40 @@ LK_PARAMS = dict(winSize=(15, 15), maxLevel=2,
                  criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
 
 def process_video(video_path, save_path=None):
-    capture = cv2.VideoCapture(video_path)
+    videogen = skvideo.io.vreader(video_path)
     fgbg = cv2.createBackgroundSubtractorMOG2()
 
     fg_masks = []
     opt_flow = []
     prev_frame_gray = None
     p0 = None
-    success, frame_idx = True, 0
-    while success:
-        success, frame = capture.read()
-        if success:
-            # Background subtraction
-            fg_mask = fgbg.apply(frame)
-            fg_masks.append(fg_mask)
+    idx = 0
+    for idx, frame in enumerate(videogen):
+        # Background subtraction
+        fg_mask = fgbg.apply(frame)
+        fg_masks.append(fg_mask)
 
-            # Optical flow
-            frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        # Optical flow
+        frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        if prev_frame_gray is not None:
+            if p0 is None or len(p0) == 0:
+                p0 = cv2.goodFeaturesToTrack(prev_frame_gray, mask=None, **ST_PARAMS)
             if p0 is None:
-                p0 = cv2.goodFeaturesToTrack(frame_gray, mask=None, **ST_PARAMS)
-            if prev_frame_gray is not None:
+                opt_flow.append([])
+            else:
                 p1, status, err = cv2.calcOpticalFlowPyrLK(prev_frame_gray, frame_gray, p0, None, **LK_PARAMS)
                 good_new = p1[status == 1]
                 good_old = p0[status == 1]
                 opt_flow.append(good_new - good_old)
                 p0 = good_new.reshape(-1, 1, 2)
-            prev_frame_gray = frame_gray.copy()
-            frame_idx += 1
-    capture.release()
-    print('[o] Processed %d frames.' % frame_idx)
+        prev_frame_gray = frame_gray.copy()
+    print('[o] Processed %d frames.' % idx)
 
-    print('Sample FG mask\n--------------')
+    print('Sample FG mask')
+    print('--------------')
     print(fg_masks[0])
-    print('--------------\nNumber of FG masks: %d' % len(fg_masks))
+    print('--------------')
+    print('Number of FG masks: %d' % len(fg_masks))
     print('Number of displacement fields: %d' % len(opt_flow))
 
     if save_path is not None:
