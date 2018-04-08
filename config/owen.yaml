@@ -1,0 +1,27 @@
+# --------------------------------------
+# HMM Activity Recognition - Config File
+# --------------------------------------
+
+mode: test_feature_extraction
+
+# Modes
+# --------------------------------------
+
+test_feature_extraction:
+  video_path: /Users/owenjow/hmm_activity_recognition/data/kth/walking/person15_walking_d2_uncomp.avi
+
+# Parameters
+# --------------------------------------
+
+feature_extraction:
+  st:
+    maxCorners: 100
+    qualityLevel: 0.3
+    minDistance: 7
+    blockSize: 7
+  lk:
+    winSize: (15, 15)
+    maxLevel: 2
+
+model:
+  num_components: 3

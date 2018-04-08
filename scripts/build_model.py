@@ -1,6 +1,8 @@
+#!/usr/bin/env python
+
 from hmmlearn import hmm
 
-# TODO make config file (?)
+# TODO read from config file
 N_COMPONENTS = 3
 
 # estimate model parameters from observed features
