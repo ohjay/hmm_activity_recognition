@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import os
 import sys
 import cv2
 import skvideo.io
@@ -71,6 +70,12 @@ def process_video(video_path, save_path=None, verbose=False):
         fg_mask = fgbg.apply(frame)
         fg_masks.append(fg_mask)
 
+        # Shape feature extraction
+        # TODO: Canny edge detection on the foreground of the frame
+        edges = cv2.Canny(fg_mask,0,127)
+        # TODO: D1 = distance between foreground centroid and canny edge centroid
+        # TODO: DFT (20 dim) then PCA (8 dim) on D1
+
         # Optical flow
         frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         if prev_frame_gray is not None:
@@ -109,10 +114,6 @@ def process_video(video_path, save_path=None, verbose=False):
     print('Shape of displacement field data: %r' % (opt_flow.shape,))
 
     if save_path is not None:
-        _dir = os.path.dirname(save_path)
-        if not os.path.exists(_dir):
-            print('[o] The directory `%s` does not yet exist. Creating it...' % _dir)
-            os.makedirs(_dir)
         h5f = h5py.File(save_path, 'w')
         h5f.create_dataset('fg_masks', data=fg_masks)
         h5f.create_dataset('opt_flow', data=opt_flow)

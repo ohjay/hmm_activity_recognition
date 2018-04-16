@@ -1,0 +1,11 @@
+# --------------------------------------
+# HMM Activity Recognition - Config File
+# --------------------------------------
+
+mode: build_model
+
+# Modes
+# --------------------------------------
+
+build_model:
+  n_components: 4

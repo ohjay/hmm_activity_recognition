@@ -1,11 +1,17 @@
 #!/usr/bin/env python
 
+import numpy as np
 from hmmlearn import hmm
 
-# TODO read from config file
-N_COMPONENTS = 3
+# Ininitialize initial transition matrix as per the paper
+TRANSMAT_PRIOR = np.array([[1/3, 1/3, 1/3, 0],
+                           [0,   1/3, 1/3, 1/3],
+                           [0,   0,   1/2, 1/2],
+                           [0,   0,   0,   1]])
 
 # estimate model parameters from observed features
 # potential: http://larsmans.github.io/seqlearn/
-# TODO get features first
-model = hmm.GaussianHMM(n_components=N_COMPONENTS, covariance_type='full')
+def learn_params(n_components, transmat_prior=TRANSMAT_PRIOR):
+    model = hmm._BaseHMM(n_components=n_components,
+                         transmat_prior=transmat_prior,
+                         verbose=True)
