@@ -3,9 +3,6 @@
 import numpy as np
 from hmmlearn import hmm
 
-# 
-N_COMPONENTS = 4
-
 # Ininitialize initial transition matrix as per the paper
 TRANSMAT_PRIOR = np.array([[1/3, 1/3, 1/3, 0],
                            [0,   1/3, 1/3, 1/3],
@@ -14,6 +11,7 @@ TRANSMAT_PRIOR = np.array([[1/3, 1/3, 1/3, 0],
 
 # estimate model parameters from observed features
 # potential: http://larsmans.github.io/seqlearn/
-model = hmm._BaseHMM(n_components=N_COMPONENTS,
-                     transmat_prior=TRANSMAT_PRIOR,
-                     verbose=True)
+def learn_params(n_components, transmat_prior=TRANSMAT_PRIOR):
+    model = hmm._BaseHMM(n_components=n_components,
+                         transmat_prior=transmat_prior,
+                         verbose=True)
