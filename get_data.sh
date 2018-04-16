@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 # Flags
 GET_KTH=true
 GET_WEIZMANN=false
