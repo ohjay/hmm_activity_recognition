@@ -8,8 +8,6 @@ import h5py
 import numpy as np
 import matplotlib.pyplot as plt
 
-# TODO read from config file
-
 # Parameters for Shi-Tomasi corner detection
 ST_PARAMS = dict(maxCorners=100, qualityLevel=0.3, minDistance=7, blockSize=7)
 
