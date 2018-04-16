@@ -19,5 +19,11 @@ extract_features:
     winSize: (15, 15)
     maxLevel: 2
 
-build_model:
-  num_components: 3
+build_models:
+  num_components: 4
+  h5_dir: TODO
+  model_dir: TODO
+
+classify_activity:
+  video_path: TODO
+  model_dir: TODO

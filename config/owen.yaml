@@ -2,7 +2,7 @@
 # HMM Activity Recognition - Config File
 # --------------------------------------
 
-mode: extract_features
+mode: build_models
 
 # Modes
 # --------------------------------------
@@ -21,5 +21,11 @@ extract_features:
     winSize: (15, 15)
     maxLevel: 2
 
-build_model:
-  num_components: 3
+build_models:
+  num_components: 4
+  h5_dir: /Users/owenjow/hmm_activity_recognition/features
+  model_dir: /Users/owenjow/hmm_activity_recognition/models
+
+classify_activity:
+  video_path: /Users/owenjow/hmm_activity_recognition/data/kth/walking/person15_walking_d2_uncomp.avi
+  model_dir: /Users/owenjow/hmm_activity_recognition/models
