@@ -8,12 +8,14 @@ import scripts.build_model as bm
 
 def extract_features(config, options=None):
     save_path = options.get('save_path', None)
+    st = options.get('st', None)
+    lk = options.get('lk', None)
     if 'base_dir' in options:
-        ef.process_all_video_dirs(options['base_dir'], save_path=save_path)
+        ef.process_all_video_dirs(options['base_dir'], save_path=save_path, st=st, lk=lk)
     elif 'video_dir' in options:
-        ef.process_video_dir(options['video_dir'], save_path=save_path)
-    else:
-        ef.process_video(options['video_path'], save_path=save_path)
+        ef.process_video_dir(options['video_dir'], save_path=save_path, st=st, lk=lk)
+    elif 'video_path' in options:
+        ef.process_video(options['video_path'], save_path=save_path, st=st, lk=lk)
 
 def build_models(config, options=None):
     n_components = options['n_components']
