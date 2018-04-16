@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import os
 import sys
 import cv2
 import skvideo.io
@@ -24,7 +23,7 @@ def process_video(video_path, save_path=None):
     fg_masks = []
     opt_flow = []
     prev_frame_gray = None
-    p0, n_points = None, None
+    p0 = None
     idx = 0
     for idx, frame in enumerate(videogen):
         # Background subtraction
@@ -33,10 +32,9 @@ def process_video(video_path, save_path=None):
 
         # Shape feature extraction
         # TODO: Canny edge detection on the foreground of the frame
-        img = cv2.imread(fg_mask,0)
-        edges = cv2.Canny(img,100,200)
+        edges = cv2.Canny(fg_mask,0,127)
         # TODO: D1 = distance between foreground centroid and canny edge centroid
-        # TODO: DFT then PCA
+        # TODO: DFT (20 dim) then PCA (8 dim) on D1
 
         # Optical flow
         frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -49,27 +47,19 @@ def process_video(video_path, save_path=None):
                 p1, status, err = cv2.calcOpticalFlowPyrLK(prev_frame_gray, frame_gray, p0, None, **LK_PARAMS)
                 good_new = p1[status == 1]
                 good_old = p0[status == 1]
-                if n_points is None:
-                    n_points = len(good_new)
-                _curr_flow = np.zeros((n_points, 2))
-                _curr_flow[:len(good_new)] = good_new - good_old
-                opt_flow.append(_curr_flow)
+                opt_flow.append(good_new - good_old)
                 p0 = good_new.reshape(-1, 1, 2)
         prev_frame_gray = frame_gray.copy()
     print('[o] Processed %d frames.' % idx)
 
-    print('Sample opt flow field')
-    print('---------------------')
-    print(opt_flow[-1])
-    print('---------------------')
-    print('Shape of FG mask data: %r' % (np.array(fg_masks).shape,))
-    print('Shape of displacement field data: %r' % (np.array(opt_flow).shape,))
+    print('Sample FG mask')
+    print('--------------')
+    print(fg_masks[0])
+    print('--------------')
+    print('Number of FG masks: %d' % len(fg_masks))
+    print('Number of displacement fields: %d' % len(opt_flow))
 
     if save_path is not None:
-        _dir = os.path.dirname(save_path)
-        if not os.path.exists(_dir):
-            print('[o] The directory `%s` does not yet exist. Creating it...' % _dir)
-            os.makedirs(_dir)
         h5f = h5py.File(save_path, 'w')
         h5f.create_dataset('fg_masks', data=np.array(fg_masks))
         h5f.create_dataset('opt_flow', data=np.array(opt_flow))
