@@ -14,7 +14,7 @@ def extract_features(config, options=None):
         ef.process_video(options['video_path'], save_path=save_path)
 
 def build_model(config, options=None):
-    bm.learn_params(options['n_components'])
+    pass
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
