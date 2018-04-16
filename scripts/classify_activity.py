@@ -22,7 +22,7 @@ def get_activity_probs(video_path, model_dir):
         for filename in filenames:
             if filename.endswith('.pkl'):
                 activity = filename[:-4]
-                model = joblib.load(filename)
+                model = joblib.load(os.path.join(model_dir, filename))
                 feature_matrix = process_video(video_path)
                 log_prob = model.score(feature_matrix)
                 activity_probs[activity] = log_prob

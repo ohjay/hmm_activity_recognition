@@ -2,7 +2,7 @@
 # HMM Activity Recognition - Config File
 # --------------------------------------
 
-mode: build_models
+mode: classify_activity
 
 # Modes
 # --------------------------------------

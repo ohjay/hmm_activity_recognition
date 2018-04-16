@@ -18,11 +18,12 @@ LK_PARAMS = dict(winSize=(15, 15), maxLevel=2,
 def _nondestructive_update(dict0, dict1, disallow_strings=False):
     """Returns a version of DICT_0 updated using DICT_1."""
     ret = dict0.copy()
-    ret.update(dict1)
-    if disallow_strings:
-        for k, v in ret.items():
-            if type(v) == str:
-                ret[k] = eval(v)
+    if dict1 is not None:
+        ret.update(dict1)
+        if disallow_strings:
+            for k, v in ret.items():
+                if type(v) == str:
+                    ret[k] = eval(v)
     return ret
 
 def process_all_video_dirs(base_dir, save_path=None, st=None, lk=None):
