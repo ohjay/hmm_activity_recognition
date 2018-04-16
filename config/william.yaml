@@ -2,10 +2,23 @@
 # HMM Activity Recognition - Config File
 # --------------------------------------
 
-mode: build_model
+mode: extract_features
 
 # Modes
 # --------------------------------------
 
 build_model:
   n_components: 4
+
+extract_features:
+  video_dir: /home/wjow/school/compsci/ee126/proj/hmm_activity_recognition/kth/walking
+  save_path: features/walking.h5
+  st:
+    maxCorners: 100
+    qualityLevel: 0.3
+    minDistance: 7
+    blockSize: 7
+  lk:
+    winSize: (15, 15)
+    maxLevel: 2
+
