@@ -1,17 +1,18 @@
 #!/usr/bin/env python
 
 import os
+import operator
 from hmmlearn import hmm
 from sklearn.externals import joblib
+from .extract_features import process_video
 
-def get_activity_probs(activity_h5, model_dir):
+def get_activity_probs(video_path, model_dir):
     """ Estimate the most likely activity for the observed sequence
 
         Parameters
         ----------
-            activity_h5: string
-                filepath for the h5 file containing the feature matrix
-                and sequence length vector associated with the activity
+            video_path: string
+                filepath for the activity video
 
             model_dir: string
                 directory where models are located
@@ -22,11 +23,9 @@ def get_activity_probs(activity_h5, model_dir):
             if filename.endswith('.pkl'):
                 activity = filename[:-4]
                 model = joblib.load(filename)
-                # TODO extract feature matrix for one video instead
-                #      of a training suite
-                feature_matrix, seq_lengths = load_features(activity_h5)
+                feature_matrix = process_video(video_path)
                 log_prob = model.score(feature_matrix)
                 activity_probs[activity] = log_prob
     sorted_activities = sorted([(k, v) for k, v in activity_probs.iteritems()],
-                               key = operator.itemgetter(1))
+                               key=operator.itemgetter(1))
     return sorted_activities

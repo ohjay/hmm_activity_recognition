@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import os
+import sys
 import numpy as np
 from hmmlearn import hmm
 from sklearn.externals import joblib
