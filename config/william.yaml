@@ -7,6 +7,9 @@ mode: build_models
 # Modes
 # --------------------------------------
 
+classify_activity:
+  model_dir: /home/wjow/school/compsci/ee126/proj/hmm_activity_recognition/models/
+        
 build_models:
   n_components: 4
   h5_dir: /home/wjow/school/compsci/ee126/proj/hmm_activity_recognition/features/
