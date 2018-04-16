@@ -8,7 +8,10 @@ import scripts.build_model as bm
 
 def extract_features(config, options=None):
     save_path = options.get('save_path', None)
-    ef.process_video_dir(options['video_dir'], save_path=save_path)
+    if 'video_dir' in options:
+        ef.process_video_dir(options['video_dir'], save_path=save_path)
+    else:
+        ef.process_video(options['video_path'], save_path=save_path)
 
 def build_model(config, options=None):
     bm.learn_params(options['n_components'])

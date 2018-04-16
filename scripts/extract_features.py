@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import os
 import sys
 import cv2
 import skvideo.io
@@ -17,10 +18,11 @@ LK_PARAMS = dict(winSize=(15, 15), maxLevel=2,
                  criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
 
 def process_video_dir(video_dir, save_path=None):
+    """Extracts features from all videos in the directory."""
     print('[o] Video directory: %s' % video_dir)
     all_features = []
     lengths = []
-    video_features, n_feat = None, -1
+    n_feat = -1
     for _file in os.listdir(video_dir):
         if _file.endswith('.avi'):
             video_path = os.path.join(video_dir, _file)
@@ -32,7 +34,7 @@ def process_video_dir(video_dir, save_path=None):
     lengths = np.array(lengths)
 
     # Post-process features (e.g. to account for variability in length)
-    pp_all_features = np.zeros((len(all_features), n_feat))
+    pp_all_features = np.zeros((np.sum(lengths), n_feat))
     i = 0
     for video_features in all_features:
         nfe, nfr = video_features.shape
@@ -55,6 +57,7 @@ def process_video_dir(video_dir, save_path=None):
     return all_features, lengths
 
 def process_video(video_path, save_path=None, verbose=False):
+    """Extracts features from a single video."""
     print('[o] Video path: %s' % video_path)
     videogen = skvideo.io.vreader(video_path)
     fgbg = cv2.createBackgroundSubtractorMOG2()

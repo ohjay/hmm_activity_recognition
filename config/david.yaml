@@ -2,13 +2,14 @@
 # HMM Activity Recognition - Config File
 # --------------------------------------
 
-mode: feature_extraction
+mode: extract_features
 
 # Modes
 # --------------------------------------
 
-feature_extraction:
+extract_features:
   video_path: /Users/david/Documents/hmm_activity_recognition/data/kth/walking/person15_walking_d2_uncomp.avi
+  save_path: features/features.h5
   st:
     maxCorners: 100
     qualityLevel: 0.3
@@ -17,10 +18,6 @@ feature_extraction:
   lk:
     winSize: (15, 15)
     maxLevel: 2
-  save_path: features/features.h5
 
-# Misc. Parameters
-# --------------------------------------
-
-model:
+build_model:
   num_components: 3
