@@ -30,6 +30,13 @@ def process_video(video_path, save_path=None):
         fg_mask = fgbg.apply(frame)
         fg_masks.append(fg_mask)
 
+        # Shape feature extraction
+        # TODO: Canny edge detection on the foreground of the frame
+        img = cv2.imread(fg_mask,0)
+        edges = cv2.Canny(img,100,200)
+        # TODO: D1 = distance between foreground centroid and canny edge centroid
+        # TODO: DFT then PCA
+
         # Optical flow
         frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         if prev_frame_gray is not None:
