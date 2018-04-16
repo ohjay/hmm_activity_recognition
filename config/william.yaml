@@ -2,13 +2,15 @@
 # HMM Activity Recognition - Config File
 # --------------------------------------
 
-mode: extract_features
+mode: build_models
 
 # Modes
 # --------------------------------------
 
-build_model:
+build_models:
   n_components: 4
+  h5_dir: /home/wjow/school/compsci/ee126/proj/hmm_activity_recognition/features/
+  model_dir: /home/wjow/school/compsci/ee126/proj/hmm_activity_recognition/models/
 
 extract_features:
   video_dir: /home/wjow/school/compsci/ee126/proj/hmm_activity_recognition/data/kth/walking
