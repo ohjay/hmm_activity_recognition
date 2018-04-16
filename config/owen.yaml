@@ -8,7 +8,7 @@ mode: extract_features
 # --------------------------------------
 
 extract_features:
-  video_dir: /Users/owenjow/hmm_activity_recognition/data/kth/walking
+  base_dir: /Users/owenjow/hmm_activity_recognition/data/kth
   save_path: features/walking.h5
   st:
     maxCorners: 100

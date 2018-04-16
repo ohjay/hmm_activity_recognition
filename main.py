@@ -8,7 +8,9 @@ import scripts.build_model as bm
 
 def extract_features(config, options=None):
     save_path = options.get('save_path', None)
-    if 'video_dir' in options:
+    if 'base_dir' in options:
+        ef.process_all_video_dirs(options['base_dir'], save_path=save_path)
+    elif 'video_dir' in options:
         ef.process_video_dir(options['video_dir'], save_path=save_path)
     else:
         ef.process_video(options['video_path'], save_path=save_path)
