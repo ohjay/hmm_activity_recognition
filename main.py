@@ -15,8 +15,11 @@ def extract_features(config, options=None):
     else:
         ef.process_video(options['video_path'], save_path=save_path)
 
-def build_model(config, options=None):
-    pass
+def build_models(config, options=None):
+    n_components = options['n_components']
+    h5_dir = options['h5_dir']
+    model_dir = options['model_dir']
+    bm.populate_model_dir(h5_dir, model_dir, n_components)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
