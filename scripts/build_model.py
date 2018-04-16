@@ -3,7 +3,7 @@
 import numpy as np
 from hmmlearn import hmm
 
-# Ininitialize initial transition matrix as per the paper
+# Initialize initial transition matrix as per the paper
 TRANSMAT_PRIOR = np.array([[1/3, 1/3, 1/3, 0],
                            [0,   1/3, 1/3, 1/3],
                            [0,   0,   1/2, 1/2],
