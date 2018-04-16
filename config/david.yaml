@@ -8,8 +8,10 @@ mode: extract_features
 # --------------------------------------
 
 extract_features:
+  base_dir: /Users/david/Documents/hmm_activity_recognition/data/kth
+  video_dir: /Users/david/Documents/hmm_activity_recognition/data/kth/walking
   video_path: /Users/david/Documents/hmm_activity_recognition/data/kth/walking/person15_walking_d2_uncomp.avi
-  save_path: features/features.h5
+  save_path: features
   st:
     maxCorners: 100
     qualityLevel: 0.3
@@ -21,9 +23,9 @@ extract_features:
 
 build_models:
   n_components: 4
-  h5_dir: TODO
-  model_dir: TODO
+  h5_dir: /Users/david/Documents/hmm_activity_recognition/features
+  model_dir: /Users/david/Documents/hmm_activity_recognition/models
 
 classify_activity:
-  video_path: TODO
-  model_dir: TODO
+  video_path: /Users/david/Documents/hmm_activity_recognition/data/kth/walking/person15_walking_d2_uncomp.avi
+  model_dir: /Users/david/Documents/hmm_activity_recognition/models
