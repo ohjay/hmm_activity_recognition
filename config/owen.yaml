@@ -22,7 +22,7 @@ extract_features:
     maxLevel: 2
 
 build_models:
-  num_components: 4
+  n_components: 4
   h5_dir: /Users/owenjow/hmm_activity_recognition/features
   model_dir: /Users/owenjow/hmm_activity_recognition/models
 

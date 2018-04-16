@@ -20,7 +20,7 @@ extract_features:
     maxLevel: 2
 
 build_models:
-  num_components: 4
+  n_components: 4
   h5_dir: TODO
   model_dir: TODO
 
