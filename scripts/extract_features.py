@@ -17,6 +17,15 @@ ST_PARAMS = dict(maxCorners=100, qualityLevel=0.3, minDistance=7, blockSize=7)
 LK_PARAMS = dict(winSize=(15, 15), maxLevel=2,
                  criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
 
+def process_all_video_dirs(base_dir, save_path=None):
+    """Extracts features from all directories in BASE_DIR."""
+    save_dir = os.path.dirname(save_path)
+    for video_dir in os.listdir(base_dir):
+        fvideo_dir = os.path.join(base_dir, video_dir)
+        if os.path.isdir(fvideo_dir):
+            name = os.path.basename(os.path.normpath(video_dir))
+            process_video_dir(fvideo_dir, os.path.join(save_dir, name + '.h5'))
+
 def process_video_dir(video_dir, save_path=None):
     """Extracts features from all videos in the directory."""
     print('[o] Video directory: %s' % video_dir)
@@ -124,6 +133,15 @@ def process_video(video_path, save_path=None, verbose=False):
         print('[+] Saved features (for individual video `%s`) to %s.' % (video_path, save_path))
 
     return opt_flow  # ultimately should contain all features
+
+def load_features(infile):
+    """Loads features from an input file."""
+    h5f = h5py.File(infile, 'r')
+    all_features = h5f['all_features'][:]
+    lengths = h5f['lengths'][:]
+    h5f.close()
+
+    return all_features, lengths
 
 if __name__ == '__main__':
     process_video(sys.argv[1])  # debug
