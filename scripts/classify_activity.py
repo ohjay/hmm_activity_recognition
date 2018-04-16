@@ -26,6 +26,6 @@ def get_activity_probs(video_path, model_dir):
                 feature_matrix = process_video(video_path)
                 log_prob = model.score(feature_matrix)
                 activity_probs[activity] = log_prob
-    sorted_activities = sorted([(k, v) for k, v in activity_probs.iteritems()],
+    sorted_activities = sorted([(k, v) for k, v in activity_probs.items()],
                                key=operator.itemgetter(1))
     return sorted_activities
