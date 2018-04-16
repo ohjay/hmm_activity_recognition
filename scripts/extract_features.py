@@ -108,14 +108,21 @@ def process_video(video_path, save_path=None, verbose=False, st=None, lk=None):
             fg_mask = fgbg.apply(frame)
             fg_masks.append(fg_mask)
 
+            frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
             # Shape feature extraction
-            # TODO: Canny edge detection on the foreground of the frame
+            activepts_grayfg = np.nonzero(frame_gray)
+            centroid_grayfg = np.array([activepts_grayfg[0].mean(), activepts_grayfg[1].mean()])
+
             edges = cv2.Canny(fg_mask,0,127)
-            # TODO: D1 = distance between foreground centroid and canny edge centroid
+            activepts_edges = np.nonzero(edges)
+            centroid_edges = np.array([activepts_edges[0].mean(), activepts_edges[1].mean()])
+
+            centroid_diff = np.subtract(centroid_grayfg, centroid_edges)
             # TODO: DFT (20 dim) then PCA (8 dim) on D1
+            # I think I need to run DFT on the entire array also
 
             # Optical flow
-            frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             if prev_frame_gray is not None:
                 if p0 is None or len(p0) == 0:
                     p0 = cv2.goodFeaturesToTrack(prev_frame_gray, mask=None, **st_config)
