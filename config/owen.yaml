@@ -29,7 +29,8 @@ extract_features:
     kernel_size: 5
     threshold: 3
   n_bins: 30
-  trim: 50
+  trim: 20
+  all_nonzero: True
 
 build_models:
   n_components: 4
