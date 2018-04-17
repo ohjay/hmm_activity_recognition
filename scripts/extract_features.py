@@ -38,7 +38,7 @@ def _nondestructive_update(dict0, dict1, disallow_strings=False):
 # - FEATURE EXTRACTION -
 # ======================
 
-def process_all_video_dirs(base_dir, features=None, save_path=None, st=None, lk=None):
+def process_all_video_dirs(base_dir, save_path=None, config=None):
     """Extracts features from all directories in BASE_DIR.
 
     Parameters
@@ -46,17 +46,11 @@ def process_all_video_dirs(base_dir, features=None, save_path=None, st=None, lk=
     base_dir : str
         path to the directory containing video subdirectories
 
-    features : dict
-        dictionary containing toggles for each of the features
-
     save_path : str
         path to which features should be saved
 
-    st : dict
-        dictionary containing overrides for Shi-Tomasi parameters
-
-    lk : dict
-        dictionary containing overrides for Lucas-Kanade parameters
+    config : dict
+        parameters for feature extraction
     """
     save_dir = os.path.dirname(save_path)
     if not save_dir:
@@ -66,12 +60,11 @@ def process_all_video_dirs(base_dir, features=None, save_path=None, st=None, lk=
         fvideo_dir = os.path.join(base_dir, video_dir)
         if os.path.isdir(fvideo_dir):
             name = os.path.basename(os.path.normpath(video_dir))
-            process_video_dir(fvideo_dir, features=features,
-                              save_path=os.path.join(save_dir, name + '.h5'), st=st, lk=lk)
+            process_video_dir(fvideo_dir, save_path=os.path.join(save_dir, name + '.h5'), config=config)
             i += 1
     print('---------- DONE. PROCESSED %d VIDEO DIRECTORIES.' % i)
 
-def process_video_dir(video_dir, features=None, save_path=None, st=None, lk=None):
+def process_video_dir(video_dir, save_path=None, config=None):
     """Extracts features from all videos in the directory.
 
     Parameters
@@ -79,17 +72,11 @@ def process_video_dir(video_dir, features=None, save_path=None, st=None, lk=None
     video_dir : str
         path to the directory containing videos
 
-    features : dict
-        dictionary containing toggles for each of the features
-
     save_path : str
         path to which features should be saved
 
-    st : dict
-        dictionary containing overrides for Shi-Tomasi parameters
-
-    lk : dict
-        dictionary containing overrides for Lucas-Kanade parameters
+    config : dict
+        parameters for feature extraction
     """
     print('---------- BEGIN VIDEO DIRECTORY PROCESSING')
     print('[o] Video directory: %s' % video_dir)
@@ -99,7 +86,7 @@ def process_video_dir(video_dir, features=None, save_path=None, st=None, lk=None
     for _file in os.listdir(video_dir):
         if _file.endswith('.avi'):
             video_path = os.path.join(video_dir, _file)
-            video_features = process_video(video_path, features=features, save_path=None, st=st, lk=lk)
+            video_features = process_video(video_path, save_path=None, config=config)
             if video_features is not None:
                 if video_features.shape[1] > n_feat:
                     n_feat = video_features.shape[1]  # number of features
@@ -134,16 +121,13 @@ def process_video_dir(video_dir, features=None, save_path=None, st=None, lk=None
 
     return all_features, lengths
 
-def process_video(video_path, features=None, save_path=None, st=None, lk=None, verbose=False):
+def process_video(video_path, save_path=None, config=None):
     """Extracts features from a single video.
 
     Parameters
     ----------
     video_path : str
         path to a single video
-
-    features : dict
-        dictionary containing toggles for each of the features
 
     save_path : str or None
         path to which features should be saved
@@ -167,11 +151,20 @@ def process_video(video_path, features=None, save_path=None, st=None, lk=None, v
     videogen = skvideo.io.vreader(video_path)
     fgbg = cv2.createBackgroundSubtractorMOG2()
 
+    # Process config
+    features = config.get('features', None)
+    st = config.get('st', None)
+    lk = config.get('lk', None)
+    verbose = config.get('verbose', False)
+    debug = config.get('debug', False)
+    denoise = config.get('denoise', {})
+    denoise_kernel_size = denoise.get('kernel_size', 5)
+    denoise_threshold = denoise.get('threshold', 3)
+
     # Load Shi-Tomasi and Lucas-Kanade configs
     st_config = _nondestructive_update(ST_PARAMS, st, disallow_strings=True)
     lk_config = _nondestructive_update(LK_PARAMS, lk, disallow_strings=True)
 
-    fg_masks = []
     opt_flow = []
     prev_frame_gray = None
     p0 = None
@@ -183,15 +176,14 @@ def process_video(video_path, features=None, save_path=None, st=None, lk=None, v
 
             # Background subtraction
             fg_mask = fgbg.apply(frame_gray)
-            fg_masks.append(fg_mask)
-
-            # Debug foreground
             fg_mask = np.clip(fg_mask, 0, 1)
-            corr = signal.correlate2d(fg_mask, np.ones((5, 5)), mode='same', boundary='fill', fillvalue=0)
-            fg_mask *= (corr > 3)  # remove noise
+            corr = signal.correlate2d(fg_mask, np.ones((denoise_kernel_size, denoise_kernel_size)),
+                                      mode='same', boundary='fill', fillvalue=0)
+            fg_mask *= (corr > denoise_threshold)  # remove noise
             fg = frame_gray * fg_mask
-            plt.imshow(fg)
-            plt.show()
+            if debug:
+                plt.imshow(fg)
+                plt.show()
 
             # Shape feature extraction
             activepts_grayfg = np.nonzero(frame_gray)
@@ -229,7 +221,6 @@ def process_video(video_path, features=None, save_path=None, st=None, lk=None, v
             pp_opt_flow.append(pp_flow)
         opt_flow = pp_opt_flow
 
-        fg_masks = np.array(fg_masks)
         opt_flow = np.array(opt_flow)
         print('[o] Processed %d frames.' % idx)
 
@@ -238,12 +229,10 @@ def process_video(video_path, features=None, save_path=None, st=None, lk=None, v
             print('---------------------')
             print(opt_flow[-1])
             print('---------------------')
-        print('Shape of FG mask data: %r' % (fg_masks.shape,))
         print('Shape of displacement field data: %r' % (opt_flow.shape,))
 
         if save_path is not None:
             h5f = h5py.File(save_path, 'w')
-            h5f.create_dataset('fg_masks', data=fg_masks)
             h5f.create_dataset('opt_flow', data=opt_flow)
             h5f.close()
             print('[+] Saved features (for individual video `%s`) to %s.' % (video_path, save_path))

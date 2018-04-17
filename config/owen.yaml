@@ -10,6 +10,8 @@ extract_features:
   # video_dir: /Users/owenjow/hmm_activity_recognition/data/kth/walking
   video_path: /Users/owenjow/hmm_activity_recognition/data/kth/walking/person15_walking_d2_uncomp.avi
   # save_path: /Users/owenjow/hmm_activity_recognition/features
+  verbose: False
+  debug: False
   st:
     maxCorners: 100
     qualityLevel: 0.3
@@ -21,6 +23,9 @@ extract_features:
   features:
     optical_flow: True
     shape: False
+  denoise:
+    kernel_size: 5
+    threshold: 3
 
 build_models:
   n_components: 4

@@ -34,18 +34,12 @@ VALID_COMMANDS = {
 
 def extract_features(config=None):
     save_path = config.get('save_path', None)
-    st = config.get('st', None)
-    lk = config.get('lk', None)
-    features = config.get('features', None)
     if 'base_dir' in config:
-        ef.process_all_video_dirs(config['base_dir'], features=features,
-                                  save_path=save_path, st=st, lk=lk)
+        ef.process_all_video_dirs(config['base_dir'], save_path=save_path, config=config)
     elif 'video_dir' in config:
-        ef.process_video_dir(config['video_dir'], features=features,
-                             save_path=save_path, st=st, lk=lk)
+        ef.process_video_dir(config['video_dir'], save_path=save_path, config=config)
     elif 'video_path' in config:
-        ef.process_video(config['video_path'], features=features,
-                         save_path=save_path, st=st, lk=lk)
+        ef.process_video(config['video_path'], save_path=save_path, config=config)
 
 def build_models(config=None):
     n_components = config['n_components']
