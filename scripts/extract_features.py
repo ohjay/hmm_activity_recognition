@@ -73,8 +73,11 @@ def use_feature(name, feature_toggles, verbose=True):
 # ======================
 
 
-def subtract_background(frame_gray, fgbg, kernel_size, threshold):
-    """Perform background subtraction.
+def subtract_background_v1(frame_gray, fgbg, kernel_size, threshold):
+    """Perform background subtraction using OpenCV and outlier rejection.
+
+    To perform noise/outlier rejection, we zero out regions
+    that don't contain many pixels after background subtraction.
 
     Parameters
     ----------
@@ -89,14 +92,6 @@ def subtract_background(frame_gray, fgbg, kernel_size, threshold):
 
     threshold: int
         denoising threshold
-
-    Returns
-    -------
-    fg: ndarray
-        the foreground
-
-    fg_mask: ndarray
-        foreground mask
     """
     fg_mask = fgbg.apply(frame_gray)
     fg_mask = np.clip(fg_mask, 0, 1)
@@ -105,6 +100,24 @@ def subtract_background(frame_gray, fgbg, kernel_size, threshold):
     fg_mask *= (corr > threshold)  # remove noise
     fg = frame_gray * fg_mask
 
+    return fg, fg_mask
+
+
+def subtract_background_v2(frame_gray, avg):
+    """Eliminate the background by subtracting a running average of each pixel value.
+
+    Parameters
+    ----------
+    frame_gray: ndarray
+        grayscale frame to process
+
+    avg: ndarray
+        running average of pixel values
+    """
+    cv2.accumulateWeighted(frame_gray, avg, 0.01)
+    res = cv2.convertScaleAbs(avg)
+    fg = frame_gray - res
+    fg_mask = fg != 0
     return fg, fg_mask
 
 
@@ -322,14 +335,10 @@ def process_video(video_path, save_path=None, config=None):
     features: ndarray, shape (n_frames, n_features)
         feature matrix for the video
     """
-    print('---')
-    print('[o] Video path: %s' % video_path)
-    videogen = skvideo.io.vreader(video_path)
-    fgbg = cv2.createBackgroundSubtractorMOG2()
-
     # Process config
     if config is None:
         config = {}
+    fg_handler = config.get('fg_handler', 1)
     st = config.get('st', None)
     lk = config.get('lk', None)
     verbose = config.get('verbose', False)
@@ -339,6 +348,7 @@ def process_video(video_path, save_path=None, config=None):
     denoise_threshold = denoise.get('threshold', 3)
     feature_toggles = config.get('feature_toggles', None)
     n_bins = config.get('n_bins', 20)
+    trim = config.get('trim', 0)  # how many frames to ignore on each end
 
     # Determine whether to use features
     use_shape = use_feature('shape', feature_toggles)
@@ -349,7 +359,13 @@ def process_video(video_path, save_path=None, config=None):
     st_config = _nondestructive_update(ST_PARAMS, st, disallow_strings=True)
     lk_config = _nondestructive_update(LK_PARAMS, lk, disallow_strings=True)
 
+    print('---')
+    print('[o] Video path: %s' % video_path)
+    videogen = skvideo.io.vreader(video_path)
+    fgbg = cv2.createBackgroundSubtractorMOG2() if fg_handler == 1 else None
+
     features = []
+    avg = None
     prev_frame_gray = None
     p0 = None
     n_features = -1
@@ -361,7 +377,14 @@ def process_video(video_path, save_path=None, config=None):
 
             # Background subtraction
             # ----------------------
-            fg, fg_mask = subtract_background(frame_gray, fgbg, denoise_kernel_size, denoise_threshold)
+            if fg_handler == 1:
+                fg, fg_mask = subtract_background_v1(frame_gray, fgbg, denoise_kernel_size, denoise_threshold)
+            elif fg_handler == 2:
+                if avg is None:
+                    avg = np.float32(frame_gray)
+                fg, fg_mask = subtract_background_v2(frame_gray, avg)
+            else:
+                raise ValueError('unrecognized foreground handler')
             if debug:
                 plt.imshow(fg)
                 plt.show()
@@ -395,6 +418,7 @@ def process_video(video_path, save_path=None, config=None):
 
         # Post-process features
         pp_features = []
+        features = features[trim:-trim]  # drop the first and final TRIM frames
         for frame_feature_vec in features:
             pp_vec = np.zeros(n_features)
             pp_vec[:frame_feature_vec.size] = frame_feature_vec
