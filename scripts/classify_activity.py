@@ -20,25 +20,33 @@ def classify_single(video_path, models, feature_toggles=None):
 
     feature_toggles: dict
         a dictionary specifying which features were used for training
+
+    Returns
+    -------
+    result: list
+        a sorted list of log probabilities for each activity
+        (or None if the video could not be processed)
     """
     if feature_toggles is None:
         config = {}
     else:
         config = {'feature_toggles': feature_toggles}
     feature_matrix = process_video(video_path, config=config)
-    feature_matrix = feature_matrix[:, :20]  # TODO adaptive feature sizes
-    _zfm = np.zeros((feature_matrix.shape[0], 20))
-    _zfm[:, :feature_matrix.shape[1]] = feature_matrix
-    feature_matrix = _zfm  # TODO adaptive feature sizes (again)
-    activity_probs = {}
+    if feature_matrix is not None:
+        feature_matrix = feature_matrix[:, :20]  # TODO adaptive feature sizes
+        _zfm = np.zeros((feature_matrix.shape[0], 20))
+        _zfm[:, :feature_matrix.shape[1]] = feature_matrix
+        feature_matrix = _zfm  # TODO adaptive feature sizes (again)
+        activity_probs = {}
 
-    for activity, model in models.items():
-        log_prob = model.score(feature_matrix)
-        activity_probs[activity] = log_prob
-    sorted_activities = sorted([(k, v) for k, v in activity_probs.items()],
-                               key=operator.itemgetter(1))
-    sorted_activities = list(reversed(sorted_activities))
-    return sorted_activities
+        for activity, model in models.items():
+            log_prob = model.score(feature_matrix)
+            activity_probs[activity] = log_prob
+        sorted_activities = sorted([(k, v) for k, v in activity_probs.items()],
+                                   key=operator.itemgetter(1))
+        sorted_activities = list(reversed(sorted_activities))
+        return sorted_activities
+    return None
 
 def get_activity_probs(path, model_dir, target='single', feature_toggles=None):
     """Estimate the most likely activity for the observed sequence.
@@ -90,7 +98,9 @@ def get_activity_probs(path, model_dir, target='single', feature_toggles=None):
                     continue
                 video_path = os.path.join(video_dir, _file)
                 sorted_activities = classify_single(video_path, models, feature_toggles)
-                if sorted_activities[0][0] == label_activity:
+                if sorted_activities is None:
+                    continue
+                elif sorted_activities[0][0] == label_activity:
                     num_correct += 1
                 total += 1
             acc[label_activity] = float(num_correct) / total
