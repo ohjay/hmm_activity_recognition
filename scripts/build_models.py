@@ -34,9 +34,9 @@ def learn_params(activity_h5, model_file, n_components,
     transmat_prior: array-like, shape (n_components, n_components)
         prior transition matrix
     """
-    model = hmm.GaussianHMM(n_components=n_components,
-                            transmat_prior=transmat_prior,
-                            init_params='t', verbose=True)
+    model = hmm.GMMHMM(n_components=n_components,
+                       transmat_prior=transmat_prior,
+                       init_params='t', verbose=True)
     feature_matrix, seq_lengths = load_features(activity_h5)
     model.fit(feature_matrix, seq_lengths)
     joblib.dump(model, model_file)

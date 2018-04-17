@@ -253,6 +253,8 @@ def process_video(video_path, save_path=None, config=None):
     fgbg = cv2.createBackgroundSubtractorMOG2()
 
     # Process config
+    if config is None:
+        config = {}
     features = config.get('features', None)
     st = config.get('st', None)
     lk = config.get('lk', None)
@@ -276,16 +278,18 @@ def process_video(video_path, save_path=None, config=None):
             frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
             # Background subtraction
-            fg, fg_mask = subtract_background(frame_gray, fgbg,
-                                              denoise_kernel_size, denoise_threshold)
+            # ----------------------
+            fg, fg_mask = subtract_background(frame_gray, fgbg, denoise_kernel_size, denoise_threshold)
             if debug:
                 plt.imshow(fg)
                 plt.show()
 
             # Shape feature extraction
+            # ------------------------
             centroid_diff = extract_shape(frame_gray, fg_mask)
 
             # Optical flow
+            # ------------
             if prev_frame_gray is not None:
                 flow, p0 = extract_optical_flow(prev_frame_gray, frame_gray, p0, st_config, lk_config)
                 opt_flow.append(flow)
