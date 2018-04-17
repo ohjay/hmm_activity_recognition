@@ -132,14 +132,8 @@ def process_video(video_path, save_path=None, config=None):
     save_path : str or None
         path to which features should be saved
 
-    st : dict
-        dictionary containing overrides for Shi-Tomasi parameters
-
-    lk : dict
-        dictionary containing overrides for Lucas-Kanade parameters
-
-    verbose : bool
-        boolean specifying whether verbosity (i.e. a bunch of output) is desired
+    config : dict
+        parameters for feature extraction
 
     Returns
     -------
