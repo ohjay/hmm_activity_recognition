@@ -213,9 +213,10 @@ def process_all_video_dirs(base_dir, save_path=None, config=None):
     config: dict
         parameters for feature extraction
     """
-    save_dir = os.path.dirname(save_path)
-    if not save_dir:
+    if os.path.isdir(save_path):
         save_dir = save_path
+    else:
+        save_dir = os.path.dirname(save_path)
     i = 0
     for video_dir in os.listdir(base_dir):
         fvideo_dir = os.path.join(base_dir, video_dir)

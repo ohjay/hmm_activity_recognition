@@ -33,6 +33,10 @@ build_models:
   model_dir: /Users/owenjow/hmm_activity_recognition/models
 
 classify_activity:
-  all: False
-  path: /Users/owenjow/hmm_activity_recognition/data/kth/running/person01_running_d4_uncomp.avi
+  all: True
+  path: /Users/owenjow/hmm_activity_recognition/data/kth
   model_dir: /Users/owenjow/hmm_activity_recognition/models
+  feature_toggles:  # should match the FEATURE_TOGGLES used for training
+    optical_flow: True
+    freq_optical_flow: False
+    shape: False

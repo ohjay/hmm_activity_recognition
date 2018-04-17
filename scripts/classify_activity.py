@@ -2,11 +2,12 @@
 
 import os
 import operator
+import numpy as np
 from hmmlearn import hmm
 from sklearn.externals import joblib
 from .extract_features import process_video
 
-def classify_single(video_path, models):
+def classify_single(video_path, models, feature_toggles=None):
     """Classify a single video.
 
     Parameters
@@ -16,9 +17,19 @@ def classify_single(video_path, models):
 
     models: dict
         a dictionary containing mappings from activity names to trained HMMs
+
+    feature_toggles: dict
+        a dictionary specifying which features were used for training
     """
-    feature_matrix = process_video(video_path)
+    if feature_toggles is None:
+        config = {}
+    else:
+        config = {'feature_toggles': feature_toggles}
+    feature_matrix = process_video(video_path, config=config)
     feature_matrix = feature_matrix[:, :20]  # TODO adaptive feature sizes
+    _zfm = np.zeros((feature_matrix.shape[0], 20))
+    _zfm[:, :feature_matrix.shape[1]] = feature_matrix
+    feature_matrix = _zfm  # TODO adaptive feature sizes (again)
     activity_probs = {}
 
     for activity, model in models.items():
@@ -29,7 +40,7 @@ def classify_single(video_path, models):
     sorted_activities = list(reversed(sorted_activities))
     return sorted_activities
 
-def get_activity_probs(path, model_dir, target='single'):
+def get_activity_probs(path, model_dir, target='single', feature_toggles=None):
     """Estimate the most likely activity for the observed sequence.
 
     Parameters
@@ -45,6 +56,9 @@ def get_activity_probs(path, model_dir, target='single'):
     target: str
         either 'all' or 'single', representing whether
         we are classifying a single video or ALL videos
+
+    feature_toggles: dict
+        a dictionary specifying which features were used for training
 
     Returns
     -------
@@ -75,7 +89,7 @@ def get_activity_probs(path, model_dir, target='single'):
                 if not _file.endswith('.avi'):
                     continue
                 video_path = os.path.join(video_dir, _file)
-                sorted_activities = classify_single(video_path, models)
+                sorted_activities = classify_single(video_path, models, feature_toggles)
                 if sorted_activities[0][0] == label_activity:
                     num_correct += 1
                 total += 1
@@ -83,5 +97,5 @@ def get_activity_probs(path, model_dir, target='single'):
         return acc
     else:
         # Classify a single video
-        sorted_activities = classify_single(path, models)
+        sorted_activities = classify_single(path, models, feature_toggles)
         return sorted_activities

@@ -52,7 +52,8 @@ def classify_activity(config=None):
     path = config['path']
     model_dir = config['model_dir']
     target = 'all' if bool(config.get('all', False)) else 'single'
-    result = ca.get_activity_probs(path, model_dir, target)
+    feature_toggles = config.get('feature_toggles', None)
+    result = ca.get_activity_probs(path, model_dir, target, feature_toggles)
     pprint(result)
 
 # ===============
