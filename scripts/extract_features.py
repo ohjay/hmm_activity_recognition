@@ -24,6 +24,8 @@ ST_PARAMS = dict(maxCorners=100, qualityLevel=0.3, minDistance=7, blockSize=7)
 LK_PARAMS = dict(winSize=(15, 15), maxLevel=2,
                  criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
 
+proc_count = 0
+
 
 # =========
 # - UTILS -
@@ -62,9 +64,9 @@ def use_feature(name, feature_toggles, verbose=True):
     use_or_not = feature_toggles is None or feature_toggles.get(name, False)
     if verbose:
         if use_or_not:
-            print('[o]     including feature "%s."' % name)
+            print('[o]     including feature "%s"' % name)
         else:
-            print('[o] NOT including feature "%s."' % name)
+            print('[o] NOT including feature "%s"' % name)
     return use_or_not
 
 
@@ -359,6 +361,11 @@ def process_video(video_path, save_path=None, config=None):
     features: ndarray, shape (n_frames, n_features)
         feature matrix for the video
     """
+    global proc_count
+    print('--- %d' % proc_count)
+    print('[o] Video path: %s' % video_path)
+    proc_count += 1
+
     # Process config
     if config is None:
         config = {}
@@ -385,8 +392,7 @@ def process_video(video_path, save_path=None, config=None):
     st_config = _nondestructive_update(ST_PARAMS, st, disallow_strings=True)
     lk_config = _nondestructive_update(LK_PARAMS, lk, disallow_strings=True)
 
-    print('---')
-    print('[o] Video path: %s' % video_path)
+    # Main setup
     videogen = skvideo.io.vreader(video_path)
     fgbg = cv2.createBackgroundSubtractorMOG2() if fg_handler == 1 else None
 
