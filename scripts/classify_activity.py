@@ -44,8 +44,7 @@ def classify_single(video_path, models, feature_toggles=None):
             log_prob = model.score(feature_matrix)
             activity_probs[activity] = log_prob
         sorted_activities = sorted([(k, v) for k, v in activity_probs.items()],
-                                   key=operator.itemgetter(1))
-        sorted_activities = list(reversed(sorted_activities))
+                                   key=operator.itemgetter(1), reverse=True)
         return sorted_activities
     return None
 
