@@ -7,6 +7,7 @@ import h5py
 import numpy as np
 from scipy import signal
 import matplotlib.pyplot as plt
+from collections import defaultdict
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 
@@ -18,6 +19,19 @@ from sklearn.preprocessing import StandardScaler
 
 OPTFLOW_MIN = -1.0
 OPTFLOW_MAX = 1.0
+
+MEANS = {
+    'optical_flow': 0.0,
+    'freq_optical_flow': 0.0,
+    'edge': 0.0,
+    'shape': 0.0,
+}
+STDEVS = {
+    'optical_flow': 1.0,
+    'freq_optical_flow': 2.8,
+    'edge': 6.3,
+    'shape': 1.0,
+}
 
 # Parameters for Shi-Tomasi corner detection
 ST_PARAMS = dict(maxCorners=100, qualityLevel=0.3, minDistance=7, blockSize=7)
@@ -186,11 +200,11 @@ def feat_edge(img, edges=None):
         centroid = np.array(img.shape) // 2
     else:
         centroid = np.array([np.mean(_nz_active[0]), np.mean(_nz_active[1])]).astype(np.int32)
-    mdim = np.min(img.shape)
-    edges_padded = np.pad(edges, ((mdim, mdim), (mdim, mdim)), 'constant')
-    centroid += mdim
-    mdim2 = mdim // 2
-    centered = edges_padded[centroid[0]-mdim2:centroid[0]+mdim2, centroid[1]-mdim2:centroid[1]+mdim2]
+    mdim2 = np.min(img.shape) // 2
+    edges_padded = np.pad(edges, ((mdim2, mdim2), (mdim2, mdim2)), 'constant')
+    centroid += mdim2
+    mdim4 = mdim2 // 2
+    centered = edges_padded[centroid[0]-mdim4:centroid[0]+mdim4, centroid[1]-mdim4:centroid[1]+mdim4]
     return centered
 
 
@@ -377,6 +391,7 @@ def process_video(video_path, save_path=None, config=None):
     feature_toggles = config.get('feature_toggles', None)
     n_bins = config.get('n_bins', 20)
     trim = config.get('trim', 0)  # how many frames to ignore on each end
+    edge_dim = config.get('edge_dim', 20)
 
     # Determine whether to use features
     use_edge = use_feature('edge', feature_toggles)
@@ -393,7 +408,7 @@ def process_video(video_path, save_path=None, config=None):
     fgbg = cv2.createBackgroundSubtractorMOG2() if fg_handler == 1 else None
 
     features = []
-    edge_features = []
+    features_indiv = defaultdict(list)
     avg = None
     prev_img = None
     p0 = None
@@ -403,7 +418,6 @@ def process_video(video_path, save_path=None, config=None):
         for idx, frame in enumerate(videogen):
             frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             frame_edge = cv2.Canny(frame_gray, 0, 255)
-            frame_feature_list = []
 
             # Background subtraction
             # ----------------------
@@ -424,46 +438,48 @@ def process_video(video_path, save_path=None, config=None):
             # ---------------
             if use_shape:
                 centroid_diff = feat_shape(frame_gray, fg_mask)
-                frame_feature_list.append(centroid_diff)  # TODO is `centroid_diff` the shape features?
+                features_indiv['shape'].append(centroid_diff)
 
             # [FEATURE] Edge
             # --------------
             if use_edge:
-                edge_features.append(feat_edge(frame_gray, edges=frame_edge).flatten())
+                edge_result = feat_edge(frame_gray, edges=frame_edge).flatten()
+                features_indiv['edge'].append(edge_result)
 
             # [FEATURE] Optical flow
             # ----------------------
             if use_optical_flow or use_freq_optical_flow:
+                _k = 'freq_optical_flow' if use_freq_optical_flow else 'optical_flow'
                 if prev_img is None:
-                    frame_feature_list.append(np.zeros(1))  # TODO default
+                    features_indiv[_k].append(np.zeros(n_bins))
                 else:
                     if use_freq_optical_flow:
                         flow, p0 = feat_freq_optical_flow(prev_img, frame_edge, p0, st_config, lk_config, n_bins)
                     else:
                         flow, p0 = feat_optical_flow(prev_img, frame_edge, p0, st_config, lk_config)
-                    frame_feature_list.append(flow)
+                    features_indiv[_k].append(flow)
                 prev_img = frame_edge.copy()
 
-            features.append(frame_feature_list)
-
         # Reduce dimensionality of edges
-        if len(edge_features) > 0:
-            pca = PCA(n_components=20)
-            edge_std = StandardScaler().fit_transform(np.array(edge_features))
-            edge_features = pca.fit_transform(edge_std)
+        if len(features_indiv['edge']) > 0:
+            pca = PCA(n_components=edge_dim)
+            edge_std = StandardScaler().fit_transform(np.array(features_indiv['edge']))
+            features_indiv['edge'] = pca.fit_transform(edge_std)
+
+        # Normalization
+        for k, v in features_indiv.items():
+            features_indiv[k] = (np.array(v) - MEANS[k]) / STDEVS[k]
 
         # Feature combination
         # -------------------
-        for j in range(len(features)):
-            frame_feature_list = features[j]
-            if len(edge_features) > 0:
-                frame_feature_list.append(edge_features[j])  # add edge features to feature list
+        for j in range(idx + 1):
+            frame_feature_list = [features_indiv[k][j] for k in sorted(features_indiv)]
             # Do combination
             frame_feature_vec = condense(frame_feature_list)
             if frame_feature_vec.size > n_features:
                 n_features = frame_feature_vec.size
             if frame_feature_vec is not None:
-                features[j] = frame_feature_vec
+                features.append(frame_feature_vec)
 
         # Post-process features
         pp_features = []
@@ -474,7 +490,7 @@ def process_video(video_path, save_path=None, config=None):
             pp_features.append(pp_vec)
         features = np.array(pp_features)
 
-        print('[o] Processed %d frames.' % idx)
+        print('[o] Processed %d frames.' % (idx + 1))
         if verbose:
             print('Sample feature vector')
             print('---------------------')

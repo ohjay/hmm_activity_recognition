@@ -14,8 +14,8 @@ extract_features:
   fg_handler: 0
   st:
     maxCorners: 200
-    qualityLevel: 0.1
-    minDistance: 2
+    qualityLevel: 0.05
+    minDistance: 3
     blockSize: 10
   lk:
     winSize: (15, 15)
@@ -29,7 +29,8 @@ extract_features:
     kernel_size: 5
     threshold: 3
   n_bins: 20
-  trim: 20
+  trim: 10
+  edge_dim: 20
 
 build_models:
   n_components: 4
