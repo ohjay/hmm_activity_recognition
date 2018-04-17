@@ -101,6 +101,46 @@ def extract_shape(frame_gray, fg_mask):
 
     return centroid_diff
 
+def extract_optical_flow(prev_frame_gray, frame_gray, p0, st_config, lk_config):
+    """Extract optical flow features.
+
+    Parameters
+    ----------
+    prev_frame_gray: ndarray
+        grayscale frame at time t-1
+
+    frame_gray: ndarray
+        grayscale frame at time t
+
+    p0: ndarray
+        points to track
+
+    st_config: dict
+        Shi-Tomasi parameters
+
+    lk_config: dict
+        Lucas-Kanade parameters
+
+    Returns
+    -------
+    flow: ndarray
+        optical flow features
+
+    p0: ndarray
+        updated (?) points to track
+    """
+    if p0 is None or len(p0) == 0:
+        p0 = cv2.goodFeaturesToTrack(prev_frame_gray, mask=None, **st_config)
+    if p0 is None:
+        flow = np.array([])
+    else:
+        p1, status, err = cv2.calcOpticalFlowPyrLK(prev_frame_gray, frame_gray, p0, None, **lk_config)
+        good_new = p1[status == 1]
+        good_old = p0[status == 1]
+        flow = good_new - good_old
+        p0 = good_new.reshape(-1, 1, 2)
+    return flow, p0
+
 # ====================
 # - VIDEO PROCESSING -
 # ====================
@@ -247,18 +287,10 @@ def process_video(video_path, save_path=None, config=None):
 
             # Optical flow
             if prev_frame_gray is not None:
-                if p0 is None or len(p0) == 0:
-                    p0 = cv2.goodFeaturesToTrack(prev_frame_gray, mask=None, **st_config)
-                if p0 is None:
-                    opt_flow.append(np.array([]))
-                else:
-                    p1, status, err = cv2.calcOpticalFlowPyrLK(prev_frame_gray, frame_gray, p0, None, **lk_config)
-                    good_new = p1[status == 1]
-                    good_old = p0[status == 1]
-                    if good_new.size > n_feat:
-                        n_feat = good_new.size  # track the maximum number of features (points * 2) in any flow
-                    opt_flow.append(good_new - good_old)
-                    p0 = good_new.reshape(-1, 1, 2)
+                flow, p0 = extract_optical_flow(prev_frame_gray, frame_gray, p0, st_config, lk_config)
+                opt_flow.append(flow)
+                if flow.size > n_feat:
+                    n_feat = flow.size  # track the maximum number of features (points * 2) in any flow
             prev_frame_gray = frame_gray.copy()
 
         # Post-process optical flow
