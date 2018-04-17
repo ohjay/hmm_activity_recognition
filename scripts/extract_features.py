@@ -28,8 +28,8 @@ MEANS = {
 }
 STDEVS = {
     'optical_flow': 1.0,
-    'freq_optical_flow': 2.8,
-    'edge': 6.3,
+    'freq_optical_flow': 1.0,
+    'edge': 1.0,
     'shape': 1.0,
 }
 
@@ -392,6 +392,7 @@ def process_video(video_path, save_path=None, config=None):
     n_bins = config.get('n_bins', 20)
     trim = config.get('trim', 0)  # how many frames to ignore on each end
     edge_dim = config.get('edge_dim', 20)
+    normalize = config.get('normalize', True)
 
     # Determine whether to use features
     use_edge = use_feature('edge', feature_toggles)
@@ -467,8 +468,9 @@ def process_video(video_path, save_path=None, config=None):
             features_indiv['edge'] = pca.fit_transform(edge_std)
 
         # Normalization
-        for k, v in features_indiv.items():
-            features_indiv[k] = (np.array(v) - MEANS[k]) / STDEVS[k]
+        if normalize:
+            for k, v in features_indiv.items():
+                features_indiv[k] = (np.array(v) - MEANS[k]) / STDEVS[k]
 
         # Feature combination
         # -------------------
