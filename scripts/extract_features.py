@@ -7,6 +7,8 @@ import h5py
 import numpy as np
 from scipy import signal
 import matplotlib.pyplot as plt
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
 
 
 # ============
@@ -189,10 +191,10 @@ def feat_edge(img, edges=None):
     centroid += mdim
     mdim2 = mdim // 2
     centered = edges_padded[centroid[0]-mdim2:centroid[0]+mdim2, centroid[1]-mdim2:centroid[1]+mdim2]
-    return np.fft.fft2(centered, (10, 10))
+    return centered
 
 
-def feat_optical_flow(prev_img, img, p0, st_config, lk_config, all_nonzero=False):
+def feat_optical_flow(prev_img, img, p0, st_config, lk_config):
     """Extract optical flow features.
 
     Parameters
@@ -212,9 +214,6 @@ def feat_optical_flow(prev_img, img, p0, st_config, lk_config, all_nonzero=False
     lk_config: dict
         Lucas-Kanade parameters
 
-    all_nonzero: bool
-        whether or not to track all nonzero points every time
-
     Returns
     -------
     flow: ndarray
@@ -223,11 +222,9 @@ def feat_optical_flow(prev_img, img, p0, st_config, lk_config, all_nonzero=False
     p0: ndarray
         updated (?) points to track
     """
-    if all_nonzero:
-        p0 = np.array(np.nonzero(img)).T
-    elif p0 is None or len(p0) == 0:
-        p0 = cv2.goodFeaturesToTrack(prev_img, mask=None, **st_config)
     if p0 is None or len(p0) == 0:
+        p0 = cv2.goodFeaturesToTrack(prev_img, mask=None, **st_config)
+    if p0 is None or len(p0) == 0:  # still
         flow = np.array([])
     else:
         p1, status, err = cv2.calcOpticalFlowPyrLK(prev_img, img, p0, None, **lk_config)
@@ -238,13 +235,13 @@ def feat_optical_flow(prev_img, img, p0, st_config, lk_config, all_nonzero=False
     return flow, p0
 
 
-def feat_freq_optical_flow(prev_img, img, p0, st_config, lk_config, all_nonzero, n_bins):
+def feat_freq_optical_flow(prev_img, img, p0, st_config, lk_config, n_bins):
     """Extract "histogram of flow" features.
 
     Accepts the same parameters as `feat_optical_flow`,
     but returns a histogram instead of the raw optical flow features.
     """
-    flow, p0 = feat_optical_flow(prev_img, img, p0, st_config, lk_config, all_nonzero)
+    flow, p0 = feat_optical_flow(prev_img, img, p0, st_config, lk_config)
     flow = flow.flatten()
     bins = np.concatenate(([-200.0], np.linspace(OPTFLOW_MIN, OPTFLOW_MAX, n_bins - 1), [200.0]))
     hist, bin_edges = np.histogram(flow, bins=bins)
@@ -380,7 +377,6 @@ def process_video(video_path, save_path=None, config=None):
     feature_toggles = config.get('feature_toggles', None)
     n_bins = config.get('n_bins', 20)
     trim = config.get('trim', 0)  # how many frames to ignore on each end
-    all_nonzero = config.get('all_nonzero', False)  # track all nonzero points during optical flow?
 
     # Determine whether to use features
     use_edge = use_feature('edge', feature_toggles)
@@ -397,6 +393,7 @@ def process_video(video_path, save_path=None, config=None):
     fgbg = cv2.createBackgroundSubtractorMOG2() if fg_handler == 1 else None
 
     features = []
+    edge_features = []
     avg = None
     prev_img = None
     p0 = None
@@ -417,7 +414,8 @@ def process_video(video_path, save_path=None, config=None):
                     avg = np.float32(frame_gray)
                 fg, fg_mask = subtract_background_v2(frame_gray, avg)
             else:
-                raise ValueError('unrecognized foreground handler')
+                # No foreground handling
+                fg, fg_mask = frame_gray, None
             if debug:
                 plt.imshow(fg)
                 plt.show()
@@ -431,7 +429,7 @@ def process_video(video_path, save_path=None, config=None):
             # [FEATURE] Edge
             # --------------
             if use_edge:
-                frame_feature_list.append(feat_edge(frame_gray, edges=frame_edge))
+                edge_features.append(feat_edge(frame_gray, edges=frame_edge).flatten())
 
             # [FEATURE] Optical flow
             # ----------------------
@@ -440,21 +438,32 @@ def process_video(video_path, save_path=None, config=None):
                     frame_feature_list.append(np.zeros(1))  # TODO default
                 else:
                     if use_freq_optical_flow:
-                        flow, p0 = feat_freq_optical_flow(prev_img, frame_edge, p0,
-                                                          st_config, lk_config, all_nonzero, n_bins)
+                        flow, p0 = feat_freq_optical_flow(prev_img, frame_edge, p0, st_config, lk_config, n_bins)
                     else:
-                        flow, p0 = feat_optical_flow(prev_img, frame_edge, p0,
-                                                     st_config, lk_config, all_nonzero)
+                        flow, p0 = feat_optical_flow(prev_img, frame_edge, p0, st_config, lk_config)
                     frame_feature_list.append(flow)
                 prev_img = frame_edge.copy()
 
-            # Feature combination
-            # -------------------
+            features.append(frame_feature_list)
+
+        # Reduce dimensionality of edges
+        if len(edge_features) > 0:
+            pca = PCA(n_components=20)
+            edge_std = StandardScaler().fit_transform(np.array(edge_features))
+            edge_features = pca.fit_transform(edge_std)
+
+        # Feature combination
+        # -------------------
+        for j in range(len(features)):
+            frame_feature_list = features[j]
+            if len(edge_features) > 0:
+                frame_feature_list.append(edge_features[j])  # add edge features to feature list
+            # Do combination
             frame_feature_vec = condense(frame_feature_list)
             if frame_feature_vec.size > n_features:
                 n_features = frame_feature_vec.size
             if frame_feature_vec is not None:
-                features.append(frame_feature_vec)
+                features[j] = frame_feature_vec
 
         # Post-process features
         pp_features = []

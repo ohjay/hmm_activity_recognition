@@ -11,7 +11,7 @@ extract_features:
   save_path: /Users/owenjow/hmm_activity_recognition/features
   debug: False
   verbose: False
-  fg_handler: 1
+  fg_handler: 0
   st:
     maxCorners: 200
     qualityLevel: 0.1
@@ -28,19 +28,18 @@ extract_features:
   denoise:
     kernel_size: 5
     threshold: 3
-  n_bins: 30
+  n_bins: 20
   trim: 20
-  all_nonzero: True
 
 build_models:
   n_components: 4
   h5_dir: /Users/owenjow/hmm_activity_recognition/features
   model_dir: /Users/owenjow/hmm_activity_recognition/models
-  n_features: 130
+  n_features: 40
 
 classify_activity:
   all: True
   path: /Users/owenjow/hmm_activity_recognition/data/kth
   model_dir: /Users/owenjow/hmm_activity_recognition/models
   eval_fraction: 0.1
-  n_features: 130
+  n_features: 40
