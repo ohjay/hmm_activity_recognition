@@ -104,13 +104,15 @@ def get_activity_probs(path, model_dir, target='single', feature_toggles=None, e
                         for f in os.listdir(video_dir) if f.endswith('.avi')]
             sample_size = int(eval_fraction * len(eval_set))
             eval_set = random.sample(eval_set, sample_size)
-            for video_path in eval_set:
+            for i, video_path in enumerate(eval_set):
                 sorted_activities = classify_single(video_path, models, feature_toggles)
                 if sorted_activities is None:
                     continue
                 elif sorted_activities[0][0] == label_activity:
                     num_correct += 1
                 total += 1
+                print('[o] Classified %d / %d in the %s evaluation set.' % (i, len(eval_set), label_activity))
+                print('[o] Current accuracy: %.2f' % (float(num_correct) / total))
             acc[label_activity] = float(num_correct) / total
         return acc
     else:
