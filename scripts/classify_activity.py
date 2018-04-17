@@ -2,6 +2,7 @@
 
 import os
 import random
+import warnings
 import operator
 import numpy as np
 from sklearn.externals import joblib
@@ -31,7 +32,9 @@ def classify_single(video_path, models, ef_params, n_features=None):
         a sorted list of log probabilities for each activity
         (or None if the video could not be processed)
     """
-    feature_matrix = process_video(video_path, config=ef_params)
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore')
+        feature_matrix = process_video(video_path, config=ef_params)
     if feature_matrix is not None:
         if n_features is not None:
             feature_matrix = feature_matrix[:, :n_features]
@@ -41,7 +44,9 @@ def classify_single(video_path, models, ef_params, n_features=None):
         activity_probs = {}
 
         for activity, model in models.items():
-            log_prob = model.score(feature_matrix)
+            with warnings.catch_warnings():
+                warnings.simplefilter('ignore')
+                log_prob = model.score(feature_matrix)
             activity_probs[activity] = log_prob
         sorted_activities = sorted([(k, v) for k, v in activity_probs.items()],
                                    key=operator.itemgetter(1), reverse=True)

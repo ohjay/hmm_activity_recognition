@@ -1,6 +1,7 @@
 #!/usr/bin/env python -W ignore::DeprecationWarning
 
 import os
+import warnings
 import numpy as np
 from hmmlearn import hmm
 from sklearn.externals import joblib
@@ -38,15 +39,19 @@ def learn_params(activity_h5, model_file, n_components,
     n_features: int
         desired size of feature dimension (set to None if no adjustment should be made)
     """
-    model = hmm.GMMHMM(n_components=n_components,
-                       transmat_prior=transmat_prior,
-                       init_params='t', verbose=True, n_iter=20)
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore')
+        model = hmm.GMMHMM(n_components=n_components,
+                           transmat_prior=transmat_prior,
+                           init_params='t', verbose=True, n_iter=20)
     feature_matrix, seq_lengths = load_features(activity_h5)
     if n_features is not None:
         feature_matrix = feature_matrix[:, :n_features]
     print('[o] Feature matrix: %r' % (feature_matrix.shape,))
     print('[o] n_sequences: %d' % len(seq_lengths))
-    model.fit(feature_matrix, seq_lengths)
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore')
+        model.fit(feature_matrix, seq_lengths)
     joblib.dump(model, model_file)
     return model
 
