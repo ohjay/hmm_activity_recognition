@@ -5,6 +5,7 @@ import cv2
 import skvideo.io
 import h5py
 import numpy as np
+from scipy import signal
 import matplotlib.pyplot as plt
 
 # ============
@@ -144,7 +145,7 @@ def process_video(video_path, features=None, save_path=None, st=None, lk=None, v
     features : dict
         dictionary containing toggles for each of the features
 
-    save_path : str
+    save_path : str or None
         path to which features should be saved
 
     st : dict
@@ -178,17 +179,19 @@ def process_video(video_path, features=None, save_path=None, st=None, lk=None, v
     idx = 0
     try:
         for idx, frame in enumerate(videogen):
+            frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
             # Background subtraction
-            fg_mask = fgbg.apply(frame)
+            fg_mask = fgbg.apply(frame_gray)
             fg_masks.append(fg_mask)
 
-            fg = frame[fg_mask]
-            plt.imshow(frame)
-            plt.show()
+            # Debug foreground
+            fg_mask = np.clip(fg_mask, 0, 1)
+            corr = signal.correlate2d(fg_mask, np.ones((5, 5)), mode='same', boundary='fill', fillvalue=0)
+            fg_mask *= (corr > 3)  # remove noise
+            fg = frame_gray * fg_mask
             plt.imshow(fg)
             plt.show()
-
-            frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
             # Shape feature extraction
             activepts_grayfg = np.nonzero(frame_gray)

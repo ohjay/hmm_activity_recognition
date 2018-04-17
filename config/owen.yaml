@@ -6,10 +6,10 @@
 # --------------------------------------
 
 extract_features:
-  base_dir: /Users/owenjow/hmm_activity_recognition/data/kth
+  # base_dir: /Users/owenjow/hmm_activity_recognition/data/kth
   # video_dir: /Users/owenjow/hmm_activity_recognition/data/kth/walking
-  # video_path: /Users/owenjow/hmm_activity_recognition/data/kth/walking/person15_walking_d2_uncomp.avi
-  save_path: features
+  video_path: /Users/owenjow/hmm_activity_recognition/data/kth/walking/person15_walking_d2_uncomp.avi
+  # save_path: /Users/owenjow/hmm_activity_recognition/features
   st:
     maxCorners: 100
     qualityLevel: 0.3

@@ -75,11 +75,11 @@ if __name__ == '__main__':
     command = None
     for vc in VALID_COMMANDS:
         if vc.startswith(args.command.lower()):
-            command = eval(vc)
+            command = vc
             break
     if command is None:
         print('[-] ERROR: unrecognized command %s' % args.command)
 
     assert os.path.isfile(args.config)
     config = yaml.load(open(args.config, 'r'))
-    command(config=config.get(command, None))
+    eval(command)(config=config.get(command, None))
