@@ -2,8 +2,6 @@
 # HMM Activity Recognition - Config File
 # --------------------------------------
 
-mode: classify_activity
-
 # Modes
 # --------------------------------------
 
@@ -20,6 +18,9 @@ extract_features:
   lk:
     winSize: (15, 15)
     maxLevel: 2
+  features:
+    optical_flow: True
+    shape: False
 
 build_models:
   n_components: 4

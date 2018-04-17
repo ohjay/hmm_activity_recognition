@@ -2,8 +2,6 @@
 # HMM Activity Recognition - Config File
 # --------------------------------------
 
-mode: build_models
-
 # Modes
 # --------------------------------------
 
@@ -26,4 +24,3 @@ extract_features:
   lk:
     winSize: (15, 15)
     maxLevel: 2
-

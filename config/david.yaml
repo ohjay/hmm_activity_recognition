@@ -2,8 +2,6 @@
 # HMM Activity Recognition - Config File
 # --------------------------------------
 
-mode: extract_features
-
 # Modes
 # --------------------------------------
 

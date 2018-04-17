@@ -1,12 +1,15 @@
 #!/usr/bin/env python
 
 import os
-import sys
 import cv2
 import skvideo.io
 import h5py
 import numpy as np
 import matplotlib.pyplot as plt
+
+# ============
+# - DEFAULTS -
+# ============
 
 # Parameters for Shi-Tomasi corner detection
 ST_PARAMS = dict(maxCorners=100, qualityLevel=0.3, minDistance=7, blockSize=7)
@@ -14,6 +17,10 @@ ST_PARAMS = dict(maxCorners=100, qualityLevel=0.3, minDistance=7, blockSize=7)
 # Parameters for Lucas-Kanade optical flow
 LK_PARAMS = dict(winSize=(15, 15), maxLevel=2,
                  criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
+
+# =========
+# - UTILS -
+# =========
 
 def _nondestructive_update(dict0, dict1, disallow_strings=False):
     """Returns a version of DICT_0 updated using DICT_1."""
@@ -26,8 +33,30 @@ def _nondestructive_update(dict0, dict1, disallow_strings=False):
                     ret[k] = eval(v)
     return ret
 
-def process_all_video_dirs(base_dir, save_path=None, st=None, lk=None):
-    """Extracts features from all directories in BASE_DIR."""
+# ======================
+# - FEATURE EXTRACTION -
+# ======================
+
+def process_all_video_dirs(base_dir, features=None, save_path=None, st=None, lk=None):
+    """Extracts features from all directories in BASE_DIR.
+
+    Parameters
+    ----------
+    base_dir : str
+        path to the directory containing video subdirectories
+
+    features : dict
+        dictionary containing toggles for each of the features
+
+    save_path : str
+        path to which features should be saved
+
+    st : dict
+        dictionary containing overrides for Shi-Tomasi parameters
+
+    lk : dict
+        dictionary containing overrides for Lucas-Kanade parameters
+    """
     save_dir = os.path.dirname(save_path)
     if not save_dir:
         save_dir = save_path
@@ -36,12 +65,31 @@ def process_all_video_dirs(base_dir, save_path=None, st=None, lk=None):
         fvideo_dir = os.path.join(base_dir, video_dir)
         if os.path.isdir(fvideo_dir):
             name = os.path.basename(os.path.normpath(video_dir))
-            process_video_dir(fvideo_dir, os.path.join(save_dir, name + '.h5'), st=st, lk=lk)
+            process_video_dir(fvideo_dir, features=features,
+                              save_path=os.path.join(save_dir, name + '.h5'), st=st, lk=lk)
             i += 1
     print('---------- DONE. PROCESSED %d VIDEO DIRECTORIES.' % i)
 
-def process_video_dir(video_dir, save_path=None, st=None, lk=None):
-    """Extracts features from all videos in the directory."""
+def process_video_dir(video_dir, features=None, save_path=None, st=None, lk=None):
+    """Extracts features from all videos in the directory.
+
+    Parameters
+    ----------
+    video_dir : str
+        path to the directory containing videos
+
+    features : dict
+        dictionary containing toggles for each of the features
+
+    save_path : str
+        path to which features should be saved
+
+    st : dict
+        dictionary containing overrides for Shi-Tomasi parameters
+
+    lk : dict
+        dictionary containing overrides for Lucas-Kanade parameters
+    """
     print('---------- BEGIN VIDEO DIRECTORY PROCESSING')
     print('[o] Video directory: %s' % video_dir)
     all_features = []
@@ -50,7 +98,7 @@ def process_video_dir(video_dir, save_path=None, st=None, lk=None):
     for _file in os.listdir(video_dir):
         if _file.endswith('.avi'):
             video_path = os.path.join(video_dir, _file)
-            video_features = process_video(video_path, save_path=None, st=st, lk=lk)
+            video_features = process_video(video_path, features=features, save_path=None, st=st, lk=lk)
             if video_features is not None:
                 if video_features.shape[1] > n_feat:
                     n_feat = video_features.shape[1]  # number of features
@@ -85,8 +133,34 @@ def process_video_dir(video_dir, save_path=None, st=None, lk=None):
 
     return all_features, lengths
 
-def process_video(video_path, save_path=None, verbose=False, st=None, lk=None):
-    """Extracts features from a single video."""
+def process_video(video_path, features=None, save_path=None, st=None, lk=None, verbose=False):
+    """Extracts features from a single video.
+
+    Parameters
+    ----------
+    video_path : str
+        path to a single video
+
+    features : dict
+        dictionary containing toggles for each of the features
+
+    save_path : str
+        path to which features should be saved
+
+    st : dict
+        dictionary containing overrides for Shi-Tomasi parameters
+
+    lk : dict
+        dictionary containing overrides for Lucas-Kanade parameters
+
+    verbose : bool
+        boolean specifying whether verbosity (i.e. a bunch of output) is desired
+
+    Returns
+    -------
+    features : array, shape (n_frames, n_features)
+        feature matrix for the video
+    """
     print('---')
     print('[o] Video path: %s' % video_path)
     videogen = skvideo.io.vreader(video_path)
@@ -107,6 +181,12 @@ def process_video(video_path, save_path=None, verbose=False, st=None, lk=None):
             # Background subtraction
             fg_mask = fgbg.apply(frame)
             fg_masks.append(fg_mask)
+
+            fg = frame[fg_mask]
+            plt.imshow(frame)
+            plt.show()
+            plt.imshow(fg)
+            plt.show()
 
             frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
@@ -170,14 +250,29 @@ def process_video(video_path, save_path=None, verbose=False, st=None, lk=None):
         print('[-] Failed to read `%s`.' % video_path)
         return None
 
+# =============
+# - RELOADING -
+# =============
+
 def load_features(infile):
-    """Loads features from an input file."""
+    """Loads features from an input file.
+
+    Parameters
+    ----------
+    infile : str
+        path to the HDF5 file containing features
+
+    Returns
+    -------
+    all_features : array, shape (n_frames, n_features)
+        feature matrix
+
+    lengths : array, shape (n_sequences,)
+        lengths of each sequence
+    """
     h5f = h5py.File(infile, 'r')
     all_features = h5f['all_features'][:]
     lengths = h5f['lengths'][:]
     h5f.close()
 
     return all_features, lengths
-
-if __name__ == '__main__':
-    process_video(sys.argv[1])  # debug

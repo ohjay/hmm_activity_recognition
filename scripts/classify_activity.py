@@ -7,15 +7,15 @@ from sklearn.externals import joblib
 from .extract_features import process_video
 
 def get_activity_probs(video_path, model_dir):
-    """ Estimate the most likely activity for the observed sequence
+    """Estimate the most likely activity for the observed sequence.
 
-        Parameters
-        ----------
-            video_path: string
-                filepath for the activity video
+    Parameters
+    ----------
+    video_path : str
+        filepath for the activity video
 
-            model_dir: string
-                directory where models are located
+    model_dir : str
+        directory where models are located
     """
     activity_probs = {}
     for (dirpath, dirnames, filenames) in os.walk(model_dir):
