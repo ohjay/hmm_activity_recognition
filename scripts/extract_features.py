@@ -171,6 +171,23 @@ def feat_shape(frame_gray, fg_mask):
     return centroid_diff
 
 
+def feat_edge(frame_gray):
+    """Extract edge features.
+    This consists of the Fourier transform of the centroid-centered edge representation.
+    """
+    edges = cv2.Canny(frame_gray, 0, 255)
+    _nz_active = tuple(np.nonzero(edges))
+    if _nz_active[0].size == 0:
+        centroid = np.array(frame_gray.shape) // 2
+    else:
+        centroid = np.array([np.mean(_nz_active[0]), np.mean(_nz_active[1])]).astype(np.int32)
+    mdim = np.min(frame_gray.shape)
+    edges_padded = np.pad(edges, ((mdim, mdim), (mdim, mdim)), 'constant')
+    centroid += mdim
+    mdim2 = mdim // 2
+    centered = edges_padded[centroid[0]-mdim2:centroid[0]+mdim2, centroid[1]-mdim2:centroid[1]+mdim2]
+    return np.fft.fft2(centered, (10, 10))
+
 def feat_optical_flow(prev_frame_gray, frame_gray, p0, st_config, lk_config):
     """Extract optical flow features.
 
@@ -351,6 +368,7 @@ def process_video(video_path, save_path=None, config=None):
     trim = config.get('trim', 0)  # how many frames to ignore on each end
 
     # Determine whether to use features
+    use_edge = use_feature('edge', feature_toggles)
     use_shape = use_feature('shape', feature_toggles)
     use_optical_flow = use_feature('optical_flow', feature_toggles)
     use_freq_optical_flow = use_feature('freq_optical_flow', feature_toggles)
@@ -395,6 +413,11 @@ def process_video(video_path, save_path=None, config=None):
                 centroid_diff = feat_shape(frame_gray, fg_mask)
                 frame_feature_list.append(centroid_diff)  # TODO is `centroid_diff` the shape features?
 
+            # [FEATURE] Edge
+            # --------------
+            if use_edge:
+                frame_feature_list.append(feat_edge(frame_gray))
+
             # [FEATURE] Optical flow
             # ----------------------
             if use_optical_flow or use_freq_optical_flow:
@@ -402,17 +425,17 @@ def process_video(video_path, save_path=None, config=None):
                     frame_feature_list.append(np.zeros(1))  # TODO default
                 else:
                     if use_freq_optical_flow:
-                        flow, p0 = feat_freq_optical_flow(prev_frame_gray, fg, p0, st_config, lk_config, n_bins)
+                        flow, p0 = feat_freq_optical_flow(prev_frame_gray, frame_gray, p0, st_config, lk_config, n_bins)
                     else:
-                        flow, p0 = feat_optical_flow(prev_frame_gray, fg, p0, st_config, lk_config)
+                        flow, p0 = feat_optical_flow(prev_frame_gray, frame_gray, p0, st_config, lk_config)
                     frame_feature_list.append(flow)
-                    if flow.size > n_features:
-                        n_features = flow.size  # track the maximum number of features (points * 2) in any flow
-                prev_frame_gray = fg.copy()
+                prev_frame_gray = frame_gray.copy()
 
             # Feature combination
             # -------------------
             frame_feature_vec = condense(frame_feature_list)
+            if frame_feature_vec.size > n_features:
+                n_features = frame_feature_vec.size
             if frame_feature_vec is not None:
                 features.append(frame_feature_vec)
 
