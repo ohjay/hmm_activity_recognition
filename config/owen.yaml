@@ -8,7 +8,7 @@
 extract_features:
   # base_dir: /Users/owenjow/hmm_activity_recognition/data/kth
   # video_dir: /Users/owenjow/hmm_activity_recognition/data/kth/walking
-  video_path: /Users/owenjow/hmm_activity_recognition/data/kth/walking/person15_walking_d2_uncomp.avi
+  video_path: /Users/owenjow/hmm_activity_recognition/data/kth/boxing/person01_boxing_d4_uncomp.avi
   # save_path: /Users/owenjow/hmm_activity_recognition/features
   verbose: False
   debug: False
@@ -33,5 +33,5 @@ build_models:
   model_dir: /Users/owenjow/hmm_activity_recognition/models
 
 classify_activity:
-  video_path: /Users/owenjow/hmm_activity_recognition/data/kth/walking/person15_walking_d2_uncomp.avi
+  video_path: /Users/owenjow/hmm_activity_recognition/data/kth/running/person01_running_d4_uncomp.avi
   model_dir: /Users/owenjow/hmm_activity_recognition/models

@@ -3,6 +3,7 @@
 import os
 import yaml
 import argparse
+from pprint import pprint
 import scripts.extract_features as ef
 import scripts.build_models as bm
 import scripts.classify_activity as ca
@@ -51,7 +52,7 @@ def classify_activity(config=None):
     video_path = config['video_path']
     model_dir = config['model_dir']
     activity_probs = ca.get_activity_probs(video_path, model_dir)
-    print(activity_probs)
+    pprint(activity_probs)
 
 # ===============
 # - ENTRY POINT -

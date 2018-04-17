@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python -W ignore::DeprecationWarning
 
 import os
 import numpy as np
@@ -38,6 +38,9 @@ def learn_params(activity_h5, model_file, n_components,
                        transmat_prior=transmat_prior,
                        init_params='t', verbose=True)
     feature_matrix, seq_lengths = load_features(activity_h5)
+    feature_matrix = feature_matrix[:, :20]  # TODO adaptive feature sizes
+    print('[o] Feature matrix: %r' % (feature_matrix.shape,))
+    print('[o] n_sequences: %d' % len(seq_lengths))
     model.fit(feature_matrix, seq_lengths)
     joblib.dump(model, model_file)
     return model
@@ -63,7 +66,7 @@ def populate_model_dir(h5_dir, model_dir, n_components,
     """
     if not os.path.exists(model_dir):
         os.makedirs(model_dir)
-    for (dirpath, dirnames, filenames) in os.walk(h5_dir):
+    for dirpath, dirnames, filenames in os.walk(h5_dir):
         for filename in filenames:
             if filename.endswith('.h5'):
                 activity_h5 = os.path.join(h5_dir, filename)
