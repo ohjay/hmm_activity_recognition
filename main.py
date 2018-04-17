@@ -52,8 +52,8 @@ def classify_activity(config=None):
     path = config['path']
     model_dir = config['model_dir']
     target = 'all' if bool(config.get('all', False)) else 'single'
-    activity_probs = ca.get_activity_probs(path, model_dir, target)
-    pprint(activity_probs)
+    result = ca.get_activity_probs(path, model_dir, target)
+    pprint(result)
 
 # ===============
 # - ENTRY POINT -

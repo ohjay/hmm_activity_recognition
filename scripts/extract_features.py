@@ -343,14 +343,14 @@ def process_video(video_path, save_path=None, config=None):
                 plt.imshow(fg)
                 plt.show()
 
-            # Shape feature extraction
-            # ------------------------
+            # [FEATURE] Shape
+            # ---------------
             if use_shape:
                 centroid_diff = feat_shape(frame_gray, fg_mask)
                 frame_feature_list.append(centroid_diff)  # TODO is `centroid_diff` the shape features?
 
-            # Optical flow
-            # ------------
+            # [FEATURE] Optical flow
+            # ----------------------
             if use_optical_flow:
                 if prev_frame_gray is None:
                     frame_feature_list.append(np.zeros(1))  # TODO default
@@ -361,8 +361,8 @@ def process_video(video_path, save_path=None, config=None):
                         n_features = flow.size  # track the maximum number of features (points * 2) in any flow
                 prev_frame_gray = fg.copy()
 
-            # Feature collection
-            # ------------------
+            # Feature combination
+            # -------------------
             frame_feature_vec = condense(frame_feature_list)
             if frame_feature_vec is not None:
                 features.append(frame_feature_vec)
