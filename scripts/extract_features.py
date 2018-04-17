@@ -97,7 +97,26 @@ def subtract_background(frame_gray, fgbg, kernel_size, threshold):
 
     return fg, fg_mask
 
-def extract_shape(frame_gray, fg_mask):
+def condense(feature_list):
+    """Convert all of the components in FEATURE_LIST into one array.
+    Individual components will be flattened.
+
+    Parameters
+    ----------
+    feature_list: list
+        a list of feature components
+
+    Returns
+    -------
+    feature_vec: ndarray
+        a 1D array containing all of the feature components
+    """
+    if not feature_list:
+        return None
+    feature_list = [f.flatten() for f in feature_list]
+    return np.concatenate(feature_list, axis=0)
+
+def feat_shape(frame_gray, fg_mask):
     """Extract shape features.
 
     Parameters
@@ -126,7 +145,7 @@ def extract_shape(frame_gray, fg_mask):
 
     return centroid_diff
 
-def extract_optical_flow(prev_frame_gray, frame_gray, p0, st_config, lk_config):
+def feat_optical_flow(prev_frame_gray, frame_gray, p0, st_config, lk_config):
     """Extract optical flow features.
 
     Parameters
@@ -166,24 +185,15 @@ def extract_optical_flow(prev_frame_gray, frame_gray, p0, st_config, lk_config):
         p0 = good_new.reshape(-1, 1, 2)
     return flow, p0
 
-def condense(feature_list):
-    """Convert all of the components in FEATURE_LIST into one array.
-    Individual components will be flattened.
+def feat_freq_optical_flow(prev_frame_gray, frame_gray, p0, st_config, lk_config):
+    """Extract "histogram of flow" features.
 
-    Parameters
-    ----------
-    feature_list: list
-        a list of feature components
-
-    Returns
-    -------
-    feature_vec: ndarray
-        a 1D array containing all of the feature components
+    Accepts the same parameters as `feat_optical_flow`,
+    but returns a histogram instead of the raw optical flow features.
     """
-    if not feature_list:
-        return None
-    feature_list = [f.flatten() for f in feature_list]
-    return np.concatenate(feature_list, axis=0)
+    flow, p0 = feat_optical_flow(prev_frame_gray, frame_gray, p0, st_config, lk_config)
+    # TODO need standard bins
+    # TODO return HoF, p0
 
 # ====================
 # - VIDEO PROCESSING -
@@ -233,20 +243,20 @@ def process_video_dir(video_dir, save_path=None, config=None):
     print('[o] Video directory: %s' % video_dir)
     all_features = []
     lengths = []
-    n_feat = -1
+    n_features = -1
     for _file in os.listdir(video_dir):
         if _file.endswith('.avi'):
             video_path = os.path.join(video_dir, _file)
             video_features = process_video(video_path, save_path=None, config=config)
             if video_features is not None:
-                if video_features.shape[1] > n_feat:
-                    n_feat = video_features.shape[1]  # number of features
+                if video_features.shape[1] > n_features:
+                    n_features = video_features.shape[1]  # number of features
                 all_features.append(video_features)
                 lengths.append(len(video_features))  # number of frames
     lengths = np.array(lengths)
 
     # Post-process features (e.g. to account for variability in length)
-    pp_all_features = np.zeros((np.sum(lengths), n_feat))
+    pp_all_features = np.zeros((np.sum(lengths), n_features))
     i = 0
     for video_features in all_features:
         nfe, nfr = video_features.shape
@@ -319,7 +329,7 @@ def process_video(video_path, save_path=None, config=None):
     features = []
     prev_frame_gray = None
     p0 = None
-    n_feat = -1
+    n_features = -1
     idx = 0
     try:
         for idx, frame in enumerate(videogen):
@@ -336,7 +346,7 @@ def process_video(video_path, save_path=None, config=None):
             # Shape feature extraction
             # ------------------------
             if use_shape:
-                centroid_diff = extract_shape(frame_gray, fg_mask)
+                centroid_diff = feat_shape(frame_gray, fg_mask)
                 frame_feature_list.append(centroid_diff)  # TODO is `centroid_diff` the shape features?
 
             # Optical flow
@@ -345,11 +355,11 @@ def process_video(video_path, save_path=None, config=None):
                 if prev_frame_gray is None:
                     frame_feature_list.append(np.zeros(1))  # TODO default
                 else:
-                    flow, p0 = extract_optical_flow(prev_frame_gray, frame_gray, p0, st_config, lk_config)
+                    flow, p0 = feat_optical_flow(prev_frame_gray, fg, p0, st_config, lk_config)
                     frame_feature_list.append(flow)
-                    if flow.size > n_feat:
-                        n_feat = flow.size  # track the maximum number of features (points * 2) in any flow
-                prev_frame_gray = frame_gray.copy()
+                    if flow.size > n_features:
+                        n_features = flow.size  # track the maximum number of features (points * 2) in any flow
+                prev_frame_gray = fg.copy()
 
             # Feature collection
             # ------------------
@@ -360,7 +370,7 @@ def process_video(video_path, save_path=None, config=None):
         # Post-process features
         pp_features = []
         for frame_feature_vec in features:
-            pp_vec = np.zeros(n_feat)
+            pp_vec = np.zeros(n_features)
             pp_vec[:frame_feature_vec.size] = frame_feature_vec
             pp_features.append(pp_vec)
         features = np.array(pp_features)
@@ -379,7 +389,7 @@ def process_video(video_path, save_path=None, config=None):
             h5f.close()
             print('[+] Saved features (for individual video `%s`) to %s.' % (video_path, save_path))
 
-        return features  # ultimately should contain all features
+        return features  # (n_frames, n_features)
     except RuntimeError:
         print('[-] Failed to read `%s`.' % video_path)
         return None

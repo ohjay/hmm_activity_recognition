@@ -22,6 +22,7 @@ extract_features:
     maxLevel: 2
   feature_toggles:
     optical_flow: True
+    freq_optical_flow: False
     shape: False
   denoise:
     kernel_size: 5
