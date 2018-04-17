@@ -38,18 +38,85 @@ def _nondestructive_update(dict0, dict1, disallow_strings=False):
 # - FEATURE EXTRACTION -
 # ======================
 
+def subtract_background(frame_gray, fgbg, kernel_size, threshold):
+    """Perform background subtraction.
+
+    Parameters
+    ----------
+    frame_gray: ndarray
+        grayscale frame to process
+
+    fgbg
+        OpenCV background subtraction object
+
+    kernel_size: int
+        size of the kernel used for denoising
+
+    threshold: int
+        denoising threshold
+
+    Returns
+    -------
+    fg: ndarray
+        the foreground
+
+    fg_mask: ndarray
+        foreground mask
+    """
+    fg_mask = fgbg.apply(frame_gray)
+    fg_mask = np.clip(fg_mask, 0, 1)
+    corr = signal.correlate2d(fg_mask, np.ones((kernel_size, kernel_size)),
+                              mode='same', boundary='fill', fillvalue=0)
+    fg_mask *= (corr > threshold)  # remove noise
+    fg = frame_gray * fg_mask
+
+    return fg, fg_mask
+
+def extract_shape(frame_gray, fg_mask):
+    """Extract shape features.
+
+    Parameters
+    ----------
+    frame_gray: ndarray
+        grayscale frame to process
+
+    fg_mask: ndarray
+        foreground mask
+
+    Returns
+    -------
+    centroid_diff: ndarray
+        difference of centroids
+    """
+    activepts_grayfg = np.nonzero(frame_gray)
+    centroid_grayfg = np.array([activepts_grayfg[0].mean(), activepts_grayfg[1].mean()])
+
+    edges = cv2.Canny(fg_mask, 0, 127)
+    activepts_edges = np.nonzero(edges)
+    centroid_edges = np.array([activepts_edges[0].mean(), activepts_edges[1].mean()])
+
+    centroid_diff = np.subtract(centroid_grayfg, centroid_edges)
+    # TODO: DFT (20 dim) then PCA (8 dim) on D1
+    # I think I need to run DFT on the entire array also
+
+    return centroid_diff
+
+# ====================
+# - VIDEO PROCESSING -
+# ====================
+
 def process_all_video_dirs(base_dir, save_path=None, config=None):
     """Extracts features from all directories in BASE_DIR.
 
     Parameters
     ----------
-    base_dir : str
+    base_dir: str
         path to the directory containing video subdirectories
 
-    save_path : str
+    save_path: str
         path to which features should be saved
 
-    config : dict
+    config: dict
         parameters for feature extraction
     """
     save_dir = os.path.dirname(save_path)
@@ -69,13 +136,13 @@ def process_video_dir(video_dir, save_path=None, config=None):
 
     Parameters
     ----------
-    video_dir : str
+    video_dir: str
         path to the directory containing videos
 
-    save_path : str
+    save_path: str
         path to which features should be saved
 
-    config : dict
+    config: dict
         parameters for feature extraction
     """
     print('---------- BEGIN VIDEO DIRECTORY PROCESSING')
@@ -126,18 +193,18 @@ def process_video(video_path, save_path=None, config=None):
 
     Parameters
     ----------
-    video_path : str
+    video_path: str
         path to a single video
 
-    save_path : str or None
+    save_path: str or None
         path to which features should be saved
 
-    config : dict
+    config: dict
         parameters for feature extraction
 
     Returns
     -------
-    features : array, shape (n_frames, n_features)
+    features: ndarray, shape (n_frames, n_features)
         feature matrix for the video
     """
     print('---')
@@ -169,27 +236,14 @@ def process_video(video_path, save_path=None, config=None):
             frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
             # Background subtraction
-            fg_mask = fgbg.apply(frame_gray)
-            fg_mask = np.clip(fg_mask, 0, 1)
-            corr = signal.correlate2d(fg_mask, np.ones((denoise_kernel_size, denoise_kernel_size)),
-                                      mode='same', boundary='fill', fillvalue=0)
-            fg_mask *= (corr > denoise_threshold)  # remove noise
-            fg = frame_gray * fg_mask
+            fg, fg_mask = subtract_background(frame_gray, fgbg,
+                                              denoise_kernel_size, denoise_threshold)
             if debug:
                 plt.imshow(fg)
                 plt.show()
 
             # Shape feature extraction
-            activepts_grayfg = np.nonzero(frame_gray)
-            centroid_grayfg = np.array([activepts_grayfg[0].mean(), activepts_grayfg[1].mean()])
-
-            edges = cv2.Canny(fg_mask,0,127)
-            activepts_edges = np.nonzero(edges)
-            centroid_edges = np.array([activepts_edges[0].mean(), activepts_edges[1].mean()])
-
-            centroid_diff = np.subtract(centroid_grayfg, centroid_edges)
-            # TODO: DFT (20 dim) then PCA (8 dim) on D1
-            # I think I need to run DFT on the entire array also
+            centroid_diff = extract_shape(frame_gray, fg_mask)
 
             # Optical flow
             if prev_frame_gray is not None:
@@ -245,15 +299,15 @@ def load_features(infile):
 
     Parameters
     ----------
-    infile : str
+    infile: str
         path to the HDF5 file containing features
 
     Returns
     -------
-    all_features : array, shape (n_frames, n_features)
+    all_features: ndarray, shape (n_frames, n_features)
         feature matrix
 
-    lengths : array, shape (n_sequences,)
+    lengths: array, shape (n_sequences,)
         lengths of each sequence
     """
     h5f = h5py.File(infile, 'r')

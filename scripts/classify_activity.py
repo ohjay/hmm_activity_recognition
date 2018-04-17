@@ -11,10 +11,10 @@ def get_activity_probs(video_path, model_dir):
 
     Parameters
     ----------
-    video_path : str
+    video_path: str
         filepath for the activity video
 
-    model_dir : str
+    model_dir: str
         directory where models are located
     """
     activity_probs = {}

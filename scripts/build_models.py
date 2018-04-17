@@ -21,17 +21,17 @@ def learn_params(activity_h5, model_file, n_components,
 
     Parameters
     ----------
-    activity_h5 : string
+    activity_h5: str
         filepath for the h5 file containing the feature matrix
         and sequence length vector associated with the activity
 
-    mode_file : string
+    mode_file: str
         filepath to save file (should have .pkl file extension)
 
-    n_components : int
+    n_components: int
         number of states in the model
 
-    transmat_prior : array-like, shape (n_components, n_components)
+    transmat_prior: array-like, shape (n_components, n_components)
         prior transition matrix
     """
     model = hmm.GaussianHMM(n_components=n_components,
@@ -49,16 +49,16 @@ def populate_model_dir(h5_dir, model_dir, n_components,
 
     Parameters
     ----------
-    h5_dir : string
+    h5_dir: str
         directory for h5 files
 
-    model_dir : string
+    model_dir: str
         directory to store models
 
-    n_components : int
+    n_components: int
         number of states for each model
 
-    transmat_prior : array-like, shape (n_components, n_components)
+    transmat_prior: array-like, shape (n_components, n_components)
         prior transition matrix for each model
     """
     if not os.path.exists(model_dir):
