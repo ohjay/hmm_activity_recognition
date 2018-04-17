@@ -34,6 +34,31 @@ def _nondestructive_update(dict0, dict1, disallow_strings=False):
                     ret[k] = eval(v)
     return ret
 
+def use_feature(name, feature_toggles, verbose=True):
+    """Returns true if feature NAME should be included in each frame's feature vector.
+    The decision is made based on FEATURE_TOGGLES.
+
+    Parameters
+    ----------
+    name: str
+        the name of the feature
+
+    feature_toggles: dict
+        settings specifying whether or not to use each feature
+
+    Returns
+    -------
+    use_or_not: bool
+        True if the feature should be included, False if not
+    """
+    use_or_not = feature_toggles is None or feature_toggles.get(name, False)
+    if verbose:
+        if use_or_not:
+            print('[o]     including feature "%s."' % name)
+        else:
+            print('[o] NOT including feature "%s."' % name)
+    return use_or_not
+
 # ======================
 # - FEATURE EXTRACTION -
 # ======================
@@ -140,6 +165,25 @@ def extract_optical_flow(prev_frame_gray, frame_gray, p0, st_config, lk_config):
         flow = good_new - good_old
         p0 = good_new.reshape(-1, 1, 2)
     return flow, p0
+
+def condense(feature_list):
+    """Convert all of the components in FEATURE_LIST into one array.
+    Individual components will be flattened.
+
+    Parameters
+    ----------
+    feature_list: list
+        a list of feature components
+
+    Returns
+    -------
+    feature_vec: ndarray
+        a 1D array containing all of the feature components
+    """
+    if not feature_list:
+        return None
+    feature_list = [f.flatten() for f in feature_list]
+    return np.concatenate(feature_list, axis=0)
 
 # ====================
 # - VIDEO PROCESSING -
@@ -255,7 +299,6 @@ def process_video(video_path, save_path=None, config=None):
     # Process config
     if config is None:
         config = {}
-    features = config.get('features', None)
     st = config.get('st', None)
     lk = config.get('lk', None)
     verbose = config.get('verbose', False)
@@ -263,12 +306,17 @@ def process_video(video_path, save_path=None, config=None):
     denoise = config.get('denoise', {})
     denoise_kernel_size = denoise.get('kernel_size', 5)
     denoise_threshold = denoise.get('threshold', 3)
+    feature_toggles = config.get('feature_toggles', None)
+
+    # Determine whether to use features
+    use_shape = use_feature('shape', feature_toggles)
+    use_optical_flow = use_feature('optical_flow', feature_toggles)
 
     # Load Shi-Tomasi and Lucas-Kanade configs
     st_config = _nondestructive_update(ST_PARAMS, st, disallow_strings=True)
     lk_config = _nondestructive_update(LK_PARAMS, lk, disallow_strings=True)
 
-    opt_flow = []
+    features = []
     prev_frame_gray = None
     p0 = None
     n_feat = -1
@@ -276,6 +324,7 @@ def process_video(video_path, save_path=None, config=None):
     try:
         for idx, frame in enumerate(videogen):
             frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            frame_feature_list = []
 
             # Background subtraction
             # ----------------------
@@ -286,42 +335,51 @@ def process_video(video_path, save_path=None, config=None):
 
             # Shape feature extraction
             # ------------------------
-            centroid_diff = extract_shape(frame_gray, fg_mask)
+            if use_shape:
+                centroid_diff = extract_shape(frame_gray, fg_mask)
+                frame_feature_list.append(centroid_diff)  # TODO is `centroid_diff` the shape features?
 
             # Optical flow
             # ------------
-            if prev_frame_gray is not None:
-                flow, p0 = extract_optical_flow(prev_frame_gray, frame_gray, p0, st_config, lk_config)
-                opt_flow.append(flow)
-                if flow.size > n_feat:
-                    n_feat = flow.size  # track the maximum number of features (points * 2) in any flow
-            prev_frame_gray = frame_gray.copy()
+            if use_optical_flow:
+                if prev_frame_gray is None:
+                    frame_feature_list.append(np.zeros(1))  # TODO default
+                else:
+                    flow, p0 = extract_optical_flow(prev_frame_gray, frame_gray, p0, st_config, lk_config)
+                    frame_feature_list.append(flow)
+                    if flow.size > n_feat:
+                        n_feat = flow.size  # track the maximum number of features (points * 2) in any flow
+                prev_frame_gray = frame_gray.copy()
 
-        # Post-process optical flow
-        pp_opt_flow = []
-        for flow in opt_flow:
-            pp_flow = np.zeros(n_feat)
-            pp_flow[:flow.size] = flow.flatten()
-            pp_opt_flow.append(pp_flow)
-        opt_flow = pp_opt_flow
+            # Feature collection
+            # ------------------
+            frame_feature_vec = condense(frame_feature_list)
+            if frame_feature_vec is not None:
+                features.append(frame_feature_vec)
 
-        opt_flow = np.array(opt_flow)
+        # Post-process features
+        pp_features = []
+        for frame_feature_vec in features:
+            pp_vec = np.zeros(n_feat)
+            pp_vec[:frame_feature_vec.size] = frame_feature_vec
+            pp_features.append(pp_vec)
+        features = np.array(pp_features)
+
         print('[o] Processed %d frames.' % idx)
-
         if verbose:
-            print('Sample opt flow field')
+            print('Sample feature vector')
             print('---------------------')
-            print(opt_flow[-1])
+            print(features[-1, :])
             print('---------------------')
-        print('Shape of displacement field data: %r' % (opt_flow.shape,))
+        print('Shape of video feature matrix: %r' % (features.shape,))
 
         if save_path is not None:
             h5f = h5py.File(save_path, 'w')
-            h5f.create_dataset('opt_flow', data=opt_flow)
+            h5f.create_dataset('features', data=features)
             h5f.close()
             print('[+] Saved features (for individual video `%s`) to %s.' % (video_path, save_path))
 
-        return opt_flow  # ultimately should contain all features
+        return features  # ultimately should contain all features
     except RuntimeError:
         print('[-] Failed to read `%s`.' % video_path)
         return None
