@@ -73,7 +73,7 @@ def use_feature(name, feature_toggles, verbose=True):
 # ======================
 
 
-def subtract_background_v1(frame_gray, fgbg, kernel_size, threshold):
+def subtract_background_v1(img, fgbg, kernel_size, threshold):
     """Perform background subtraction using OpenCV and outlier rejection.
 
     To perform noise/outlier rejection, we zero out regions
@@ -81,7 +81,7 @@ def subtract_background_v1(frame_gray, fgbg, kernel_size, threshold):
 
     Parameters
     ----------
-    frame_gray: ndarray
+    img: ndarray
         grayscale frame to process
 
     fgbg
@@ -93,30 +93,30 @@ def subtract_background_v1(frame_gray, fgbg, kernel_size, threshold):
     threshold: int
         denoising threshold
     """
-    fg_mask = fgbg.apply(frame_gray)
+    fg_mask = fgbg.apply(img)
     fg_mask = np.clip(fg_mask, 0, 1)
     corr = signal.correlate2d(fg_mask, np.ones((kernel_size, kernel_size)),
                               mode='same', boundary='fill', fillvalue=0)
     fg_mask *= (corr > threshold)  # remove noise
-    fg = frame_gray * fg_mask
+    fg = img * fg_mask
 
     return fg, fg_mask
 
 
-def subtract_background_v2(frame_gray, avg):
+def subtract_background_v2(img, avg):
     """Eliminate the background by subtracting a running average of each pixel value.
 
     Parameters
     ----------
-    frame_gray: ndarray
+    img: ndarray
         grayscale frame to process
 
     avg: ndarray
         running average of pixel values
     """
-    cv2.accumulateWeighted(frame_gray, avg, 0.01)
+    cv2.accumulateWeighted(img, avg, 0.01)
     res = cv2.convertScaleAbs(avg)
-    fg = frame_gray - res
+    fg = img - res
     fg_mask = fg != 0
     return fg, fg_mask
 
@@ -141,12 +141,12 @@ def condense(feature_list):
     return np.concatenate(feature_list, axis=0)
 
 
-def feat_shape(frame_gray, fg_mask):
+def feat_shape(img, fg_mask):
     """Extract shape features.
 
     Parameters
     ----------
-    frame_gray: ndarray
+    img: ndarray
         grayscale frame to process
 
     fg_mask: ndarray
@@ -157,7 +157,7 @@ def feat_shape(frame_gray, fg_mask):
     centroid_diff: ndarray
         difference of centroids
     """
-    activepts_grayfg = np.nonzero(frame_gray)
+    activepts_grayfg = np.nonzero(img)
     centroid_grayfg = np.array([activepts_grayfg[0].mean(), activepts_grayfg[1].mean()])
 
     edges = cv2.Canny(fg_mask, 0, 127)
@@ -171,17 +171,18 @@ def feat_shape(frame_gray, fg_mask):
     return centroid_diff
 
 
-def feat_edge(frame_gray):
+def feat_edge(img, edges=None):
     """Extract edge features.
     This consists of the Fourier transform of the centroid-centered edge representation.
     """
-    edges = cv2.Canny(frame_gray, 0, 255)
+    if edges is None:
+        edges = cv2.Canny(img, 0, 255)
     _nz_active = tuple(np.nonzero(edges))
     if _nz_active[0].size == 0:
-        centroid = np.array(frame_gray.shape) // 2
+        centroid = np.array(img.shape) // 2
     else:
         centroid = np.array([np.mean(_nz_active[0]), np.mean(_nz_active[1])]).astype(np.int32)
-    mdim = np.min(frame_gray.shape)
+    mdim = np.min(img.shape)
     edges_padded = np.pad(edges, ((mdim, mdim), (mdim, mdim)), 'constant')
     centroid += mdim
     mdim2 = mdim // 2
@@ -189,15 +190,15 @@ def feat_edge(frame_gray):
     return np.fft.fft2(centered, (10, 10))
 
 
-def feat_optical_flow(prev_frame_gray, frame_gray, p0, st_config, lk_config, all_nonzero=False):
+def feat_optical_flow(prev_img, img, p0, st_config, lk_config, all_nonzero=False):
     """Extract optical flow features.
 
     Parameters
     ----------
-    prev_frame_gray: ndarray
+    prev_img: ndarray
         grayscale frame at time t-1
 
-    frame_gray: ndarray
+    img: ndarray
         grayscale frame at time t
 
     p0: ndarray
@@ -221,13 +222,13 @@ def feat_optical_flow(prev_frame_gray, frame_gray, p0, st_config, lk_config, all
         updated (?) points to track
     """
     if all_nonzero:
-        p0 = np.array(np.nonzero(frame_gray)).T
+        p0 = np.array(np.nonzero(img)).T
     elif p0 is None or len(p0) == 0:
-        p0 = cv2.goodFeaturesToTrack(prev_frame_gray, mask=None, **st_config)
+        p0 = cv2.goodFeaturesToTrack(prev_img, mask=None, **st_config)
     if p0 is None or len(p0) == 0:
         flow = np.array([])
     else:
-        p1, status, err = cv2.calcOpticalFlowPyrLK(prev_frame_gray, frame_gray, p0, None, **lk_config)
+        p1, status, err = cv2.calcOpticalFlowPyrLK(prev_img, img, p0, None, **lk_config)
         good_new = p1[status == 1]
         good_old = p0[status == 1]
         flow = good_new - good_old
@@ -235,13 +236,13 @@ def feat_optical_flow(prev_frame_gray, frame_gray, p0, st_config, lk_config, all
     return flow, p0
 
 
-def feat_freq_optical_flow(prev_frame_gray, frame_gray, p0, st_config, lk_config, all_nonzero, n_bins):
+def feat_freq_optical_flow(prev_img, img, p0, st_config, lk_config, all_nonzero, n_bins):
     """Extract "histogram of flow" features.
 
     Accepts the same parameters as `feat_optical_flow`,
     but returns a histogram instead of the raw optical flow features.
     """
-    flow, p0 = feat_optical_flow(prev_frame_gray, frame_gray, p0, st_config, lk_config, all_nonzero)
+    flow, p0 = feat_optical_flow(prev_img, img, p0, st_config, lk_config, all_nonzero)
     flow = flow.flatten()
     bins = np.concatenate(([-200.0], np.linspace(OPTFLOW_MIN, OPTFLOW_MAX, n_bins - 1), [200.0]))
     hist, bin_edges = np.histogram(flow, bins=bins)
@@ -391,13 +392,14 @@ def process_video(video_path, save_path=None, config=None):
 
     features = []
     avg = None
-    prev_frame_gray = None
+    prev_img = None
     p0 = None
     n_features = -1
     idx = 0
     try:
         for idx, frame in enumerate(videogen):
             frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            frame_edge = cv2.Canny(frame_gray, 0, 255)
             frame_feature_list = []
 
             # Background subtraction
@@ -423,23 +425,22 @@ def process_video(video_path, save_path=None, config=None):
             # [FEATURE] Edge
             # --------------
             if use_edge:
-                frame_feature_list.append(feat_edge(frame_gray))
+                frame_feature_list.append(feat_edge(frame_gray, edges=frame_edge))
 
             # [FEATURE] Optical flow
             # ----------------------
             if use_optical_flow or use_freq_optical_flow:
-                frame_edge = cv2.Canny(frame_gray, 0, 255)
-                if prev_frame_gray is None:
+                if prev_img is None:
                     frame_feature_list.append(np.zeros(1))  # TODO default
                 else:
                     if use_freq_optical_flow:
-                        flow, p0 = feat_freq_optical_flow(prev_frame_gray, frame_edge, p0,
+                        flow, p0 = feat_freq_optical_flow(prev_img, frame_edge, p0,
                                                           st_config, lk_config, all_nonzero, n_bins)
                     else:
-                        flow, p0 = feat_optical_flow(prev_frame_gray, frame_edge, p0,
+                        flow, p0 = feat_optical_flow(prev_img, frame_edge, p0,
                                                      st_config, lk_config, all_nonzero)
                     frame_feature_list.append(flow)
-                prev_frame_gray = frame_edge.copy()
+                prev_img = frame_edge.copy()
 
             # Feature combination
             # -------------------
