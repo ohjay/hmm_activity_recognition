@@ -49,9 +49,10 @@ def build_models(config=None):
     bm.populate_model_dir(h5_dir, model_dir, n_components)
 
 def classify_activity(config=None):
-    video_path = config['video_path']
+    path = config['path']
     model_dir = config['model_dir']
-    activity_probs = ca.get_activity_probs(video_path, model_dir)
+    target = 'all' if bool(config.get('all', False)) else 'single'
+    activity_probs = ca.get_activity_probs(path, model_dir, target)
     pprint(activity_probs)
 
 # ===============

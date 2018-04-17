@@ -33,5 +33,6 @@ build_models:
   model_dir: /Users/owenjow/hmm_activity_recognition/models
 
 classify_activity:
-  video_path: /Users/owenjow/hmm_activity_recognition/data/kth/running/person01_running_d4_uncomp.avi
+  all: False
+  path: /Users/owenjow/hmm_activity_recognition/data/kth/running/person01_running_d4_uncomp.avi
   model_dir: /Users/owenjow/hmm_activity_recognition/models
