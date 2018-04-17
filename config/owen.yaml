@@ -40,3 +40,4 @@ classify_activity:
     optical_flow: True
     freq_optical_flow: False
     shape: False
+  eval_fraction: 0.3

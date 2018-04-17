@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import os
+import random
 import operator
 import numpy as np
 from hmmlearn import hmm
@@ -48,7 +49,7 @@ def classify_single(video_path, models, feature_toggles=None):
         return sorted_activities
     return None
 
-def get_activity_probs(path, model_dir, target='single', feature_toggles=None):
+def get_activity_probs(path, model_dir, target='single', feature_toggles=None, eval_fraction=1.0):
     """Estimate the most likely activity for the observed sequence.
 
     Parameters
@@ -67,6 +68,10 @@ def get_activity_probs(path, model_dir, target='single', feature_toggles=None):
 
     feature_toggles: dict
         a dictionary specifying which features were used for training
+
+    eval_fraction: float
+        fraction of each population's training set to classify
+        (only meaningful if TARGET == 'all')
 
     Returns
     -------
@@ -93,10 +98,13 @@ def get_activity_probs(path, model_dir, target='single', feature_toggles=None):
             if not os.path.isdir(video_dir):
                 continue
             label_activity = os.path.basename(os.path.normpath(video_dir)).lower()
-            for _file in os.listdir(video_dir):
-                if not _file.endswith('.avi'):
-                    continue
-                video_path = os.path.join(video_dir, _file)
+
+            # Evaluate on a random subset of the training data
+            eval_set = [os.path.join(video_dir, f)
+                        for f in os.listdir(video_dir) if f.endswith('.avi')]
+            sample_size = int(eval_fraction * len(eval_set))
+            eval_set = random.sample(eval_set, sample_size)
+            for video_path in eval_set:
                 sorted_activities = classify_single(video_path, models, feature_toggles)
                 if sorted_activities is None:
                     continue
