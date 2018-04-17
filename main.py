@@ -19,9 +19,11 @@ To add a new command:
 To run, specify parameters in the config file and run `python main.py <command> <config path>`.
 """
 
+
 # ====================================
 # - MODIFY IF A NEW COMMAND IS ADDED -
 # ====================================
+
 
 VALID_COMMANDS = {
     'extract_features',
@@ -29,9 +31,11 @@ VALID_COMMANDS = {
     'classify_activity',
 }
 
+
 # ====================
 # - COMMAND HANDLERS -
 # ====================
+
 
 def extract_features(config):
     ef_params = config['extract_features']
@@ -43,6 +47,7 @@ def extract_features(config):
     elif 'video_path' in ef_params:
         ef.process_video(ef_params['video_path'], save_path=save_path, config=ef_params)
 
+
 def build_models(config):
     bm_params = config['build_models']
     n_components = bm_params['n_components']
@@ -50,6 +55,7 @@ def build_models(config):
     model_dir = bm_params['model_dir']
     n_features = bm_params.get('n_features', None)
     bm.populate_model_dir(h5_dir, model_dir, n_components, n_features=n_features)
+
 
 def classify_activity(config):
     ef_params = config['extract_features']
@@ -63,9 +69,11 @@ def classify_activity(config):
                                    eval_fraction, n_features=n_features)
     pprint(result)
 
+
 # ===============
 # - ENTRY POINT -
 # ===============
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

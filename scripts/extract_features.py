@@ -8,9 +8,11 @@ import numpy as np
 from scipy import signal
 import matplotlib.pyplot as plt
 
+
 # ============
 # - DEFAULTS -
 # ============
+
 
 OPTFLOW_MIN = -1.0
 OPTFLOW_MAX = 1.0
@@ -22,9 +24,11 @@ ST_PARAMS = dict(maxCorners=100, qualityLevel=0.3, minDistance=7, blockSize=7)
 LK_PARAMS = dict(winSize=(15, 15), maxLevel=2,
                  criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
 
+
 # =========
 # - UTILS -
 # =========
+
 
 def _nondestructive_update(dict0, dict1, disallow_strings=False):
     """Returns a version of DICT_0 updated using DICT_1."""
@@ -36,6 +40,7 @@ def _nondestructive_update(dict0, dict1, disallow_strings=False):
                 if type(v) == str:
                     ret[k] = eval(v)
     return ret
+
 
 def use_feature(name, feature_toggles, verbose=True):
     """Returns true if feature NAME should be included in each frame's feature vector.
@@ -62,9 +67,11 @@ def use_feature(name, feature_toggles, verbose=True):
             print('[o] NOT including feature "%s."' % name)
     return use_or_not
 
+
 # ======================
 # - FEATURE EXTRACTION -
 # ======================
+
 
 def subtract_background(frame_gray, fgbg, kernel_size, threshold):
     """Perform background subtraction.
@@ -100,6 +107,7 @@ def subtract_background(frame_gray, fgbg, kernel_size, threshold):
 
     return fg, fg_mask
 
+
 def condense(feature_list):
     """Convert all of the components in FEATURE_LIST into one array.
     Individual components will be flattened.
@@ -118,6 +126,7 @@ def condense(feature_list):
         return None
     feature_list = [f.flatten() for f in feature_list]
     return np.concatenate(feature_list, axis=0)
+
 
 def feat_shape(frame_gray, fg_mask):
     """Extract shape features.
@@ -147,6 +156,7 @@ def feat_shape(frame_gray, fg_mask):
     # I think I need to run DFT on the entire array also
 
     return centroid_diff
+
 
 def feat_optical_flow(prev_frame_gray, frame_gray, p0, st_config, lk_config):
     """Extract optical flow features.
@@ -188,7 +198,8 @@ def feat_optical_flow(prev_frame_gray, frame_gray, p0, st_config, lk_config):
         p0 = good_new.reshape(-1, 1, 2)
     return flow, p0
 
-def feat_freq_optical_flow(prev_frame_gray, frame_gray, p0, st_config, lk_config, nbins):
+
+def feat_freq_optical_flow(prev_frame_gray, frame_gray, p0, st_config, lk_config, n_bins):
     """Extract "histogram of flow" features.
 
     Accepts the same parameters as `feat_optical_flow`,
@@ -196,13 +207,15 @@ def feat_freq_optical_flow(prev_frame_gray, frame_gray, p0, st_config, lk_config
     """
     flow, p0 = feat_optical_flow(prev_frame_gray, frame_gray, p0, st_config, lk_config)
     flow = flow.flatten()
-    bins = np.concatenate(([-200.0], np.linspace(OPTFLOW_MIN, OPTFLOW_MAX, nbins - 1), [200.0]))
+    bins = np.concatenate(([-200.0], np.linspace(OPTFLOW_MIN, OPTFLOW_MAX, n_bins - 1), [200.0]))
     hist, bin_edges = np.histogram(flow, bins=bins)
     return hist, p0
+
 
 # ====================
 # - VIDEO PROCESSING -
 # ====================
+
 
 def process_all_video_dirs(base_dir, save_path=None, config=None):
     """Extracts features from all directories in BASE_DIR.
@@ -230,6 +243,7 @@ def process_all_video_dirs(base_dir, save_path=None, config=None):
             process_video_dir(fvideo_dir, save_path=os.path.join(save_dir, name + '.h5'), config=config)
             i += 1
     print('---------- DONE. PROCESSED %d VIDEO DIRECTORIES.' % i)
+
 
 def process_video_dir(video_dir, save_path=None, config=None):
     """Extracts features from all videos in the directory.
@@ -288,6 +302,7 @@ def process_video_dir(video_dir, save_path=None, config=None):
 
     return all_features, lengths
 
+
 def process_video(video_path, save_path=None, config=None):
     """Extracts features from a single video.
 
@@ -323,7 +338,7 @@ def process_video(video_path, save_path=None, config=None):
     denoise_kernel_size = denoise.get('kernel_size', 5)
     denoise_threshold = denoise.get('threshold', 3)
     feature_toggles = config.get('feature_toggles', None)
-    nbins = config.get('nbins', 20)
+    n_bins = config.get('n_bins', 20)
 
     # Determine whether to use features
     use_shape = use_feature('shape', feature_toggles)
@@ -364,7 +379,7 @@ def process_video(video_path, save_path=None, config=None):
                     frame_feature_list.append(np.zeros(1))  # TODO default
                 else:
                     if use_freq_optical_flow:
-                        flow, p0 = feat_freq_optical_flow(prev_frame_gray, fg, p0, st_config, lk_config, nbins)
+                        flow, p0 = feat_freq_optical_flow(prev_frame_gray, fg, p0, st_config, lk_config, n_bins)
                     else:
                         flow, p0 = feat_optical_flow(prev_frame_gray, fg, p0, st_config, lk_config)
                     frame_feature_list.append(flow)
@@ -405,9 +420,11 @@ def process_video(video_path, save_path=None, config=None):
         print('[-] Failed to read `%s`.' % video_path)
         return None
 
+
 # =============
 # - RELOADING -
 # =============
+
 
 def load_features(infile):
     """Loads features from an input file.

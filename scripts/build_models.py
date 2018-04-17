@@ -12,10 +12,12 @@ TRANSMAT_PRIOR = np.array([[1/3, 1/3, 1/3, 0],
                            [0,   0,   1/2, 1/2],
                            [0,   0,   0,   1]])
 
-# Estimate model parameters from observed features
+
 def learn_params(activity_h5, model_file, n_components,
                  transmat_prior=TRANSMAT_PRIOR, n_features=None):
-    """Save an HMM model (Gaussian emissions) with learned parameters
+    """Estimate model parameters from observed features.
+
+    Save an HMM model (Gaussian emissions) with learned parameters
     (transition and emission probabilities) to model_file.
 
     Parameters
@@ -47,6 +49,7 @@ def learn_params(activity_h5, model_file, n_components,
     model.fit(feature_matrix, seq_lengths)
     joblib.dump(model, model_file)
     return model
+
 
 def populate_model_dir(h5_dir, model_dir, n_components,
                        transmat_prior=TRANSMAT_PRIOR, n_features=None):

@@ -7,6 +7,7 @@ import numpy as np
 from sklearn.externals import joblib
 from .extract_features import process_video
 
+
 def classify_single(video_path, models, ef_params, n_features=None):
     """Classify a single video.
 
@@ -46,6 +47,7 @@ def classify_single(video_path, models, ef_params, n_features=None):
                                    key=operator.itemgetter(1), reverse=True)
         return sorted_activities
     return None
+
 
 def get_activity_probs(path, model_dir, target,
                        ef_params, eval_fraction=1.0, n_features=None):

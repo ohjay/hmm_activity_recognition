@@ -26,7 +26,7 @@ extract_features:
   denoise:
     kernel_size: 5
     threshold: 3
-  nbins: 20
+  n_bins: 20
 
 build_models:
   n_components: 4
