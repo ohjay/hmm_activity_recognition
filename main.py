@@ -12,7 +12,7 @@ import scripts.classify_activity as ca
 main.py
 
 To add a new command:
-- define a function with the signature `<command>(config=None)`
+- define a function with the signature `<command>(config)`
 - add <command> to VALID_COMMANDS
 - if desired, add a <command> section in the config file
 
@@ -33,31 +33,34 @@ VALID_COMMANDS = {
 # - COMMAND HANDLERS -
 # ====================
 
-def extract_features(config=None):
-    save_path = config.get('save_path', None)
-    if 'base_dir' in config:
-        ef.process_all_video_dirs(config['base_dir'], save_path=save_path, config=config)
-    elif 'video_dir' in config:
-        ef.process_video_dir(config['video_dir'], save_path=save_path, config=config)
-    elif 'video_path' in config:
-        ef.process_video(config['video_path'], save_path=save_path, config=config)
+def extract_features(config):
+    ef_params = config['extract_features']
+    save_path = ef_params.get('save_path', None)
+    if 'base_dir' in ef_params:
+        ef.process_all_video_dirs(ef_params['base_dir'], save_path=save_path, config=ef_params)
+    elif 'video_dir' in ef_params:
+        ef.process_video_dir(ef_params['video_dir'], save_path=save_path, config=ef_params)
+    elif 'video_path' in ef_params:
+        ef.process_video(ef_params['video_path'], save_path=save_path, config=ef_params)
 
-def build_models(config=None):
-    n_components = config['n_components']
-    h5_dir = config['h5_dir']
-    model_dir = config['model_dir']
-    n_features = config.get('n_features', None)
+def build_models(config):
+    bm_params = config['build_models']
+    n_components = bm_params['n_components']
+    h5_dir = bm_params['h5_dir']
+    model_dir = bm_params['model_dir']
+    n_features = bm_params.get('n_features', None)
     bm.populate_model_dir(h5_dir, model_dir, n_components, n_features=n_features)
 
-def classify_activity(config=None):
-    path = config['path']
-    model_dir = config['model_dir']
-    target = 'all' if bool(config.get('all', False)) else 'single'
-    feature_toggles = config.get('feature_toggles', None)
-    eval_fraction = config.get('eval_fraction', 1.0)
-    n_features = config.get('n_features', None)
-    result = ca.get_activity_probs(path, model_dir, target,
-                                   feature_toggles, eval_fraction, n_features=n_features)
+def classify_activity(config):
+    ef_params = config['extract_features']
+    ca_params = config['classify_activity']
+    path = ca_params['path']
+    model_dir = ca_params['model_dir']
+    target = 'all' if bool(ca_params.get('all', False)) else 'single'
+    eval_fraction = ca_params.get('eval_fraction', 1.0)
+    n_features = ca_params.get('n_features', None)
+    result = ca.get_activity_probs(path, model_dir, target, ef_params,
+                                   eval_fraction, n_features=n_features)
     pprint(result)
 
 # ===============
@@ -83,4 +86,4 @@ if __name__ == '__main__':
 
     assert os.path.isfile(args.config)
     config = yaml.load(open(args.config, 'r'))
-    eval(command)(config=config.get(command, None))
+    eval(command)(config=config)

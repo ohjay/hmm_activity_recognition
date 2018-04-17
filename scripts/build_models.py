@@ -13,7 +13,6 @@ TRANSMAT_PRIOR = np.array([[1/3, 1/3, 1/3, 0],
                            [0,   0,   0,   1]])
 
 # Estimate model parameters from observed features
-# (potentially useful: http://larsmans.github.io/seqlearn/)
 def learn_params(activity_h5, model_file, n_components,
                  transmat_prior=TRANSMAT_PRIOR, n_features=None):
     """Save an HMM model (Gaussian emissions) with learned parameters
@@ -39,7 +38,7 @@ def learn_params(activity_h5, model_file, n_components,
     """
     model = hmm.GMMHMM(n_components=n_components,
                        transmat_prior=transmat_prior,
-                       init_params='t', verbose=True)
+                       init_params='t', verbose=True, n_iter=20)
     feature_matrix, seq_lengths = load_features(activity_h5)
     if n_features is not None:
         feature_matrix = feature_matrix[:, :n_features]

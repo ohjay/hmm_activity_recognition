@@ -7,7 +7,7 @@ import numpy as np
 from sklearn.externals import joblib
 from .extract_features import process_video
 
-def classify_single(video_path, models, feature_toggles=None, n_features=None):
+def classify_single(video_path, models, ef_params, n_features=None):
     """Classify a single video.
 
     Parameters
@@ -18,8 +18,8 @@ def classify_single(video_path, models, feature_toggles=None, n_features=None):
     models: dict
         a dictionary containing mappings from activity names to trained HMMs
 
-    feature_toggles: dict
-        a dictionary specifying which features were used for training
+    ef_params: dict
+        a dictionary specifying the feature params used for training
 
     n_features: int
         desired size of feature dimension (set to None if no adjustment should be made)
@@ -30,11 +30,7 @@ def classify_single(video_path, models, feature_toggles=None, n_features=None):
         a sorted list of log probabilities for each activity
         (or None if the video could not be processed)
     """
-    if feature_toggles is None:
-        config = {}
-    else:
-        config = {'feature_toggles': feature_toggles}
-    feature_matrix = process_video(video_path, config=config)
+    feature_matrix = process_video(video_path, config=ef_params)
     if feature_matrix is not None:
         if n_features is not None:
             feature_matrix = feature_matrix[:, :n_features]
@@ -51,8 +47,8 @@ def classify_single(video_path, models, feature_toggles=None, n_features=None):
         return sorted_activities
     return None
 
-def get_activity_probs(path, model_dir, target='single',
-                       feature_toggles=None, eval_fraction=1.0, n_features=None):
+def get_activity_probs(path, model_dir, target,
+                       ef_params, eval_fraction=1.0, n_features=None):
     """Estimate the most likely activity for the observed sequence.
 
     Parameters
@@ -69,8 +65,8 @@ def get_activity_probs(path, model_dir, target='single',
         either 'all' or 'single', representing whether
         we are classifying a single video or ALL videos
 
-    feature_toggles: dict
-        a dictionary specifying which features were used for training
+    ef_params: dict
+        a dictionary specifying the feature params used for training
 
     eval_fraction: float
         fraction of each population's training set to classify
@@ -111,7 +107,7 @@ def get_activity_probs(path, model_dir, target='single',
             eval_set = random.sample(eval_set, sample_size)
             num_correct, total = 0, 0
             for i, video_path in enumerate(eval_set):
-                sorted_activities = classify_single(video_path, models, feature_toggles, n_features)
+                sorted_activities = classify_single(video_path, models, ef_params, n_features)
                 if sorted_activities is None:
                     continue
                 elif sorted_activities[0][0] == label_activity:
@@ -124,5 +120,5 @@ def get_activity_probs(path, model_dir, target='single',
         return acc
     else:
         # Classify a single video
-        sorted_activities = classify_single(path, models, feature_toggles)
+        sorted_activities = classify_single(path, models, ef_params)
         return sorted_activities
