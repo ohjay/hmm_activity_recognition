@@ -20,12 +20,13 @@ extract_features:
     winSize: (15, 15)
     maxLevel: 2
   feature_toggles:
-    optical_flow: True
-    freq_optical_flow: False
+    optical_flow: False
+    freq_optical_flow: True
     shape: False
   denoise:
     kernel_size: 5
     threshold: 3
+  nbins: 10
 
 build_models:
   n_components: 4

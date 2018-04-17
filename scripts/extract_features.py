@@ -12,6 +12,9 @@ import matplotlib.pyplot as plt
 # - DEFAULTS -
 # ============
 
+OPTFLOW_MIN = -1.0
+OPTFLOW_MAX = 1.0
+
 # Parameters for Shi-Tomasi corner detection
 ST_PARAMS = dict(maxCorners=100, qualityLevel=0.3, minDistance=7, blockSize=7)
 
@@ -185,15 +188,17 @@ def feat_optical_flow(prev_frame_gray, frame_gray, p0, st_config, lk_config):
         p0 = good_new.reshape(-1, 1, 2)
     return flow, p0
 
-def feat_freq_optical_flow(prev_frame_gray, frame_gray, p0, st_config, lk_config):
+def feat_freq_optical_flow(prev_frame_gray, frame_gray, p0, st_config, lk_config, nbins):
     """Extract "histogram of flow" features.
 
     Accepts the same parameters as `feat_optical_flow`,
     but returns a histogram instead of the raw optical flow features.
     """
     flow, p0 = feat_optical_flow(prev_frame_gray, frame_gray, p0, st_config, lk_config)
-    # TODO need standard bins
-    # TODO return HoF, p0
+    flow = flow.flatten()
+    bins = np.concatenate(([-200.0], np.linspace(OPTFLOW_MIN, OPTFLOW_MAX, nbins - 1), [200.0]))
+    hist, bin_edges = np.histogram(flow, bins=bins)
+    return hist, p0
 
 # ====================
 # - VIDEO PROCESSING -
@@ -318,10 +323,12 @@ def process_video(video_path, save_path=None, config=None):
     denoise_kernel_size = denoise.get('kernel_size', 5)
     denoise_threshold = denoise.get('threshold', 3)
     feature_toggles = config.get('feature_toggles', None)
+    nbins = config.get('nbins', 20)
 
     # Determine whether to use features
     use_shape = use_feature('shape', feature_toggles)
     use_optical_flow = use_feature('optical_flow', feature_toggles)
+    use_freq_optical_flow = use_feature('freq_optical_flow', feature_toggles)
 
     # Load Shi-Tomasi and Lucas-Kanade configs
     st_config = _nondestructive_update(ST_PARAMS, st, disallow_strings=True)
@@ -352,11 +359,14 @@ def process_video(video_path, save_path=None, config=None):
 
             # [FEATURE] Optical flow
             # ----------------------
-            if use_optical_flow:
+            if use_optical_flow or use_freq_optical_flow:
                 if prev_frame_gray is None:
                     frame_feature_list.append(np.zeros(1))  # TODO default
                 else:
-                    flow, p0 = feat_optical_flow(prev_frame_gray, fg, p0, st_config, lk_config)
+                    if use_freq_optical_flow:
+                        flow, p0 = feat_freq_optical_flow(prev_frame_gray, fg, p0, st_config, lk_config, nbins)
+                    else:
+                        flow, p0 = feat_optical_flow(prev_frame_gray, fg, p0, st_config, lk_config)
                     frame_feature_list.append(flow)
                     if flow.size > n_features:
                         n_features = flow.size  # track the maximum number of features (points * 2) in any flow

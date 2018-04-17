@@ -4,7 +4,6 @@ import os
 import random
 import operator
 import numpy as np
-from hmmlearn import hmm
 from sklearn.externals import joblib
 from .extract_features import process_video
 
