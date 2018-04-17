@@ -32,13 +32,15 @@ build_models:
   n_components: 4
   h5_dir: /Users/owenjow/hmm_activity_recognition/features
   model_dir: /Users/owenjow/hmm_activity_recognition/models
+  n_features: 10
 
 classify_activity:
   all: True
   path: /Users/owenjow/hmm_activity_recognition/data/kth
   model_dir: /Users/owenjow/hmm_activity_recognition/models
   feature_toggles:  # should match the FEATURE_TOGGLES used for training
-    optical_flow: True
-    freq_optical_flow: False
+    optical_flow: False
+    freq_optical_flow: True
     shape: False
   eval_fraction: 0.3
+  n_features: 10

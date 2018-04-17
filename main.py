@@ -46,7 +46,8 @@ def build_models(config=None):
     n_components = config['n_components']
     h5_dir = config['h5_dir']
     model_dir = config['model_dir']
-    bm.populate_model_dir(h5_dir, model_dir, n_components)
+    n_features = config.get('n_features', None)
+    bm.populate_model_dir(h5_dir, model_dir, n_components, n_features=n_features)
 
 def classify_activity(config=None):
     path = config['path']
@@ -54,8 +55,9 @@ def classify_activity(config=None):
     target = 'all' if bool(config.get('all', False)) else 'single'
     feature_toggles = config.get('feature_toggles', None)
     eval_fraction = config.get('eval_fraction', 1.0)
+    n_features = config.get('n_features', None)
     result = ca.get_activity_probs(path, model_dir, target,
-                                   feature_toggles, eval_fraction)
+                                   feature_toggles, eval_fraction, n_features=n_features)
     pprint(result)
 
 # ===============

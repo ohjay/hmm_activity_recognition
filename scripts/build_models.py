@@ -15,7 +15,7 @@ TRANSMAT_PRIOR = np.array([[1/3, 1/3, 1/3, 0],
 # Estimate model parameters from observed features
 # (potentially useful: http://larsmans.github.io/seqlearn/)
 def learn_params(activity_h5, model_file, n_components,
-                 transmat_prior=TRANSMAT_PRIOR):
+                 transmat_prior=TRANSMAT_PRIOR, n_features=None):
     """Save an HMM model (Gaussian emissions) with learned parameters
     (transition and emission probabilities) to model_file.
 
@@ -33,12 +33,16 @@ def learn_params(activity_h5, model_file, n_components,
 
     transmat_prior: array-like, shape (n_components, n_components)
         prior transition matrix
+
+    n_features: int
+        desired size of feature dimension (set to None if no adjustment should be made)
     """
     model = hmm.GMMHMM(n_components=n_components,
                        transmat_prior=transmat_prior,
                        init_params='t', verbose=True)
     feature_matrix, seq_lengths = load_features(activity_h5)
-    feature_matrix = feature_matrix[:, :20]  # TODO adaptive feature sizes
+    if n_features is not None:
+        feature_matrix = feature_matrix[:, :n_features]
     print('[o] Feature matrix: %r' % (feature_matrix.shape,))
     print('[o] n_sequences: %d' % len(seq_lengths))
     model.fit(feature_matrix, seq_lengths)
@@ -46,7 +50,7 @@ def learn_params(activity_h5, model_file, n_components,
     return model
 
 def populate_model_dir(h5_dir, model_dir, n_components,
-                       transmat_prior=TRANSMAT_PRIOR):
+                       transmat_prior=TRANSMAT_PRIOR, n_features=None):
     """Populate the model directory with trained models corresponding
     to each h5 file in h5_dir.
 
@@ -63,6 +67,9 @@ def populate_model_dir(h5_dir, model_dir, n_components,
 
     transmat_prior: array-like, shape (n_components, n_components)
         prior transition matrix for each model
+
+    n_features: int
+        desired size of feature dimension (set to None if no adjustment should be made)
     """
     if not os.path.exists(model_dir):
         os.makedirs(model_dir)
@@ -73,4 +80,4 @@ def populate_model_dir(h5_dir, model_dir, n_components,
                 activity_pkl = filename[:-3] + '.pkl'
                 model_file = os.path.join(model_dir, activity_pkl)
                 learn_params(activity_h5, model_file, n_components,
-                             transmat_prior)
+                             transmat_prior, n_features=n_features)

@@ -7,7 +7,7 @@ import numpy as np
 from sklearn.externals import joblib
 from .extract_features import process_video
 
-def classify_single(video_path, models, feature_toggles=None):
+def classify_single(video_path, models, feature_toggles=None, n_features=None):
     """Classify a single video.
 
     Parameters
@@ -21,6 +21,9 @@ def classify_single(video_path, models, feature_toggles=None):
     feature_toggles: dict
         a dictionary specifying which features were used for training
 
+    n_features: int
+        desired size of feature dimension (set to None if no adjustment should be made)
+
     Returns
     -------
     result: list
@@ -33,10 +36,11 @@ def classify_single(video_path, models, feature_toggles=None):
         config = {'feature_toggles': feature_toggles}
     feature_matrix = process_video(video_path, config=config)
     if feature_matrix is not None:
-        feature_matrix = feature_matrix[:, :20]  # TODO adaptive feature sizes
-        _zfm = np.zeros((feature_matrix.shape[0], 20))
-        _zfm[:, :feature_matrix.shape[1]] = feature_matrix
-        feature_matrix = _zfm  # TODO adaptive feature sizes (again)
+        if n_features is not None:
+            feature_matrix = feature_matrix[:, :n_features]
+            _zfm = np.zeros((feature_matrix.shape[0], n_features))
+            _zfm[:, :feature_matrix.shape[1]] = feature_matrix
+            feature_matrix = _zfm
         activity_probs = {}
 
         for activity, model in models.items():
@@ -47,7 +51,8 @@ def classify_single(video_path, models, feature_toggles=None):
         return sorted_activities
     return None
 
-def get_activity_probs(path, model_dir, target='single', feature_toggles=None, eval_fraction=1.0):
+def get_activity_probs(path, model_dir, target='single',
+                       feature_toggles=None, eval_fraction=1.0, n_features=None):
     """Estimate the most likely activity for the observed sequence.
 
     Parameters
@@ -70,6 +75,9 @@ def get_activity_probs(path, model_dir, target='single', feature_toggles=None, e
     eval_fraction: float
         fraction of each population's training set to classify
         (only meaningful if TARGET == 'all')
+
+    n_features: int
+        desired size of feature dimension (set to None if no adjustment should be made)
 
     Returns
     -------
@@ -103,7 +111,7 @@ def get_activity_probs(path, model_dir, target='single', feature_toggles=None, e
             eval_set = random.sample(eval_set, sample_size)
             num_correct, total = 0, 0
             for i, video_path in enumerate(eval_set):
-                sorted_activities = classify_single(video_path, models, feature_toggles)
+                sorted_activities = classify_single(video_path, models, feature_toggles, n_features)
                 if sorted_activities is None:
                     continue
                 elif sorted_activities[0][0] == label_activity:
