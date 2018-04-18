@@ -75,7 +75,7 @@ def classify_single(video_path, models, stats, ef_params, n_features=None):
         if MAJORITY_VOTE:
             activities = activity_probs.keys()
             lp_matrix = np.array([activity_probs[activity] for activity in activities])
-            counts = np.bincount(np.argmax(lp_matrix, axis=0))
+            counts = np.bincount(np.argmax(lp_matrix, axis=0), minlength=len(activities))
             activity_scores = dict(zip(activities, counts))
         else:
             # Take average of log probabilities across ensemble
