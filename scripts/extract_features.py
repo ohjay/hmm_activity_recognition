@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 from collections import defaultdict
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
+from .dataset_utils import read_sequences_file
 
 
 # ============
@@ -43,6 +44,7 @@ LK_PARAMS = dict(winSize=(15, 15), maxLevel=2,
                  criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
 
 proc_count = 0
+seq_info = {}
 
 
 # =========
@@ -328,12 +330,13 @@ def process_video_dir(video_dir, save_path=None, config=None):
     for _file in os.listdir(video_dir):
         if _file.endswith('.avi'):
             video_path = os.path.join(video_dir, _file)
-            video_features = process_video(video_path, save_path=None, config=config)
-            if video_features is not None:
-                if video_features.shape[1] > n_features:
-                    n_features = video_features.shape[1]  # number of features
-                all_features.append(video_features)
-                lengths.append(len(video_features))  # number of frames
+            video_features_seq = process_video(video_path, save_path=None, config=config)
+            if video_features_seq is not None:
+                for video_features in video_features_seq:
+                    if video_features.shape[1] > n_features:
+                        n_features = video_features.shape[1]  # number of features
+                    all_features.append(video_features)
+                    lengths.append(len(video_features))  # number of frames
     lengths = np.array(lengths)
 
     # Post-process features (e.g. to account for variability in length)
@@ -380,13 +383,20 @@ def process_video(video_path, save_path=None, config=None):
 
     Returns
     -------
-    features: ndarray, shape (n_frames, n_features)
-        feature matrix for the video
+    features: list, shape (n_sequences, n_frames, n_features)
+        list of feature matrices for each sequence in the video
     """
     global proc_count
     print('--- %d' % proc_count)
     print('[o] Video path: %s' % video_path)
     proc_count += 1
+
+    # KTH sequence spec
+    if len(seq_info) == 0:
+        sequences_path = config.get('sequences_path', None)
+        if sequences_path is not None:
+            seq_info.update(read_sequences_file(sequences_path))
+    frame_limits = seq_info.get(os.path.split(video_path)[-1], None)
 
     # Process config
     if config is None:
@@ -478,7 +488,7 @@ def process_video(video_path, save_path=None, config=None):
                 prev_img = frame_edge.copy()
 
         # Reduce dimensionality of edges
-        if len(features_indiv['edge']) > 0:
+        if 'edge' in features_indiv:
             pca = PCA(n_components=edge_dim)
             edge_std = StandardScaler().fit_transform(np.array(features_indiv['edge']))
             features_indiv['edge'] = pca.fit_transform(edge_std)
@@ -502,29 +512,36 @@ def process_video(video_path, save_path=None, config=None):
                 features.append(frame_feature_vec)
 
         # Post-process features
-        pp_features = []
-        features = features[trim:-trim]  # drop the first and final TRIM frames
-        for frame_feature_vec in features:
-            pp_vec = np.zeros(n_features)
-            pp_vec[:frame_feature_vec.size] = frame_feature_vec
-            pp_features.append(pp_vec)
-        features = np.array(pp_features)
+        # - slice, trim, extend
+        if frame_limits is None:
+            print('[-] Warning: `frame_limits` is None. This is only a problem if using the KTH dataset.')
+            frame_limits = ((0, idx),)
+        features_seq = []
+        for seq_start, seq_end in frame_limits:
+            # Drop the first and final TRIM frames
+            features_seq.append(features[seq_start+trim:seq_end+1-trim])
+            pp_features = []
+            for frame_feature_vec in features_seq[-1]:
+                pp_vec = np.zeros(n_features)
+                pp_vec[:frame_feature_vec.size] = frame_feature_vec
+                pp_features.append(pp_vec)
+            features_seq[-1] = np.array(pp_features)
 
-        print('[o] Processed %d frames.' % (idx + 1))
+        print('[+] Processed %d frames.' % (idx + 1))
         if verbose:
             print('Sample feature vector')
             print('---------------------')
-            print(features[-1, :])
+            print(features_seq[0][-1, :])
             print('---------------------')
-        print('Shape of video feature matrix: %r' % (features.shape,))
+        print('Shape of video feature matrices: %r' % ([fm.shape for fm in features_seq],))
 
         if save_path is not None:
             h5f = h5py.File(save_path, 'w')
-            h5f.create_dataset('features', data=features)
+            h5f.create_dataset('features_seq', data=features_seq)
             h5f.close()
             print('[+] Saved features (for individual video `%s`) to %s.' % (video_path, save_path))
 
-        return features  # (n_frames, n_features)
+        return features_seq  # (n_sequences, n_frames, n_features)
     except RuntimeError:
         print('[-] Failed to read `%s`.' % video_path)
         return None

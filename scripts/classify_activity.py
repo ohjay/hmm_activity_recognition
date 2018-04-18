@@ -5,6 +5,7 @@ import random
 import warnings
 import operator
 import numpy as np
+from collections import defaultdict
 from sklearn.externals import joblib
 from .extract_features import process_video
 
@@ -34,20 +35,23 @@ def classify_single(video_path, models, ef_params, n_features=None):
     """
     with warnings.catch_warnings():
         warnings.simplefilter('ignore')
-        feature_matrix = process_video(video_path, config=ef_params)
-    if feature_matrix is not None:
-        if n_features is not None:
-            feature_matrix = feature_matrix[:, :n_features]
-            _zfm = np.zeros((feature_matrix.shape[0], n_features))
-            _zfm[:, :feature_matrix.shape[1]] = feature_matrix
-            feature_matrix = _zfm
-        activity_probs = {}
+        feature_seq_matrix = process_video(video_path, config=ef_params)
+    if feature_seq_matrix is not None:
+        activity_probs = defaultdict(list)
+        for feature_matrix in feature_seq_matrix:
+            if n_features is not None:
+                feature_matrix = feature_matrix[:, :n_features]
+                _zfm = np.zeros((feature_matrix.shape[0], n_features))
+                _zfm[:, :feature_matrix.shape[1]] = feature_matrix
+                feature_matrix = _zfm
 
-        for activity, model in models.items():
-            with warnings.catch_warnings():
-                warnings.simplefilter('ignore')
-                log_prob = model.score(feature_matrix)
-            activity_probs[activity] = log_prob
+            for activity, model in models.items():
+                with warnings.catch_warnings():
+                    warnings.simplefilter('ignore')
+                    log_prob = model.score(feature_matrix)
+                activity_probs[activity].append(log_prob)
+        for activity in activity_probs:
+            activity_probs[activity] = np.mean(activity_probs[activity])
         sorted_activities = sorted([(k, v) for k, v in activity_probs.items()],
                                    key=operator.itemgetter(1), reverse=True)
         return sorted_activities

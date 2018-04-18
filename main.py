@@ -67,6 +67,7 @@ def classify_activity(config):
     result = ca.get_activity_probs(path, model_dir, target, ef_params,
                                    eval_fraction, n_features=n_features)
     pprint(result)
+    print('total: %.2f' % sum(result.values()))
 
 
 # ===============
