@@ -118,7 +118,7 @@ def learn_params(activity_h5, model_file, model_args, n_features=None, compute_s
         try:
             model.score(the_chosen[0])
         except ValueError:
-            print('[-] nan alert! Dropping this model.')
+            print('[-] ERROR: nan alert! Dropping this model.')
             return None
     joblib.dump(model, model_file)
     return model
