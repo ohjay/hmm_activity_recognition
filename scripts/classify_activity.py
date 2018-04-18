@@ -112,10 +112,13 @@ def get_activity_probs(path, model_dir, target,
         for filename in filenames:
             if filename.endswith('.pkl'):
                 m = re.match(r'([a-zA-Z]+)\d+.pkl', filename)
-                activity = m.group(1)
-                model = joblib.load(os.path.join(model_dir, filename))
-                models[activity].append(model)
-                stats_tmp[activity].append(stats[filename])
+                try:
+                    activity = m.group(1)
+                    model = joblib.load(os.path.join(model_dir, filename))
+                    models[activity].append(model)
+                    stats_tmp[activity].append(stats[filename])
+                except AttributeError:
+                    pass
     stats = stats_tmp
 
     # Determine activity probabilities for videos

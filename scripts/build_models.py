@@ -14,6 +14,7 @@ TRANSMAT_PRIOR_4x4 = np.array([[1.0/3, 1.0/3, 1.0/3,     0],
                                [0,     1.0/3, 1.0/3, 1.0/3],
                                [0,         0, 1.0/2, 1.0/2],
                                [0,         0,     0,   1.0]])
+sample_data = []
 
 
 def rm_rf(dir, confirmation_prompt=None):
@@ -105,20 +106,18 @@ def learn_params(activity_h5, model_file, model_args, n_features=None):
     print('[o] n_sequences: %d' % len(seq_lengths))
     the_chosen, seq_lengths = \
         subsample_feature_matrix(feature_matrix, seq_lengths, subsample)
+    sample_data.extend(the_chosen)
     feature_matrix = np.concatenate(the_chosen, axis=0)
-    log_probs = []
     with warnings.catch_warnings():
         warnings.simplefilter('ignore')
         model.fit(feature_matrix, seq_lengths)
-        for feature_singleseq in the_chosen:
-            try:
-                log_probs.append(model.score(feature_singleseq))
-            except ValueError:
-                print('[-] nan alert! Dropping this model.')
-                return None, None
-    model_stats = (np.mean(log_probs), np.std(log_probs))
+        try:
+            model.score(the_chosen[0])
+        except ValueError:
+            print('[-] nan alert! Dropping this model.')
+            return None
     joblib.dump(model, model_file)
-    return model, model_stats
+    return model
 
 
 def populate_model_dir(h5_dir, model_dir, all_model_args, n_features=None):
@@ -161,9 +160,18 @@ def populate_model_dir(h5_dir, model_dir, all_model_args, n_features=None):
                     print('model %d:' % i)
                     activity_pkl = filename[:-3] + str(i) + '.pkl'
                     model_file = os.path.join(model_dir, activity_pkl)
-                    _, model_stats = learn_params(activity_h5, model_file,
-                                                  model_args, n_features)
-                    if model_stats is not None:
-                        stats[activity_pkl] = model_stats
+                    model = learn_params(activity_h5, model_file,
+                                         model_args, n_features)
+                    if model is not None:
+                        stats[activity_pkl] = model
                 print('')
+
+    # Do stats
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore')
+        for k in stats:
+            model = stats[k]
+            log_probs = [model.score(fs) for fs in sample_data]
+            model_stats = (np.mean(log_probs), np.std(log_probs))
+            stats[k] = model_stats
     joblib.dump(stats, os.path.join(model_dir, 'stats.pkl'))
