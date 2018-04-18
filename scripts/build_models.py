@@ -7,15 +7,15 @@ from hmmlearn import hmm
 from sklearn.externals import joblib
 from .extract_features import load_features
 
-# Initialize initial transition matrix as per the paper
-TRANSMAT_PRIOR = np.array([[1/3, 1/3, 1/3, 0],
-                           [0,   1/3, 1/3, 1/3],
-                           [0,   0,   1/2, 1/2],
-                           [0,   0,   0,   1]])
+# Initialize transition matrix as per the paper
+# In general, the transition matrix should have shape (n_components, n_components)
+TRANSMAT_PRIOR_4x4 = np.array([[1.0/3, 1.0/3, 1.0/3,     0],
+                               [0,     1.0/3, 1.0/3, 1.0/3],
+                               [0,         0, 1.0/2, 1.0/2],
+                               [0,         0,     0,   1.0]])
 
 
-def learn_params(activity_h5, model_file, n_components,
-                 transmat_prior=TRANSMAT_PRIOR, n_features=None):
+def learn_params(activity_h5, model_file, model_args, n_features=None):
     """Estimate model parameters from observed features.
 
     Save an HMM model (Gaussian emissions) with learned parameters
@@ -27,23 +27,36 @@ def learn_params(activity_h5, model_file, n_components,
         filepath for the h5 file containing the feature matrix
         and sequence length vector associated with the activity
 
-    mode_file: str
+    model_file: str
         filepath to save file (should have .pkl file extension)
 
-    n_components: int
-        number of states in the model
-
-    transmat_prior: array-like, shape (n_components, n_components)
-        prior transition matrix
+    model_args: dict
+        model settings (e.g. number of states in the model)
 
     n_features: int
         desired size of feature dimension (set to None if no adjustment should be made)
     """
+    # Model settings
+    # n_components, transmat_prior, init_params, verbose, n_iter
+    _args = {'init_params': 't', 'verbose': True}
+    if 'n_components' in model_args:
+        _args['n_components'] = model_args['n_components']
+        if _args['n_components'] == 4:
+            _args['transmat_prior'] = TRANSMAT_PRIOR_4x4
+    _args['n_iter'] = model_args.get('n_iter', 20)
+    m_type = model_args.get('m_type', 'gmm').lower()
+    print('Initializing %s model with args:\n%r' % (m_type, _args))
+
+    # Initialize model
+    if 'gmmhmm'.startswith(m_type):
+        Model = hmm.GMMHMM
+    else:
+        Model = hmm.GaussianHMM
     with warnings.catch_warnings():
         warnings.simplefilter('ignore')
-        model = hmm.GMMHMM(n_components=n_components,
-                           transmat_prior=transmat_prior,
-                           init_params='t', verbose=True, n_iter=20)
+        model = Model(**_args)
+
+    # Fit model to feature matrix
     feature_matrix, seq_lengths = load_features(activity_h5)
     if n_features is not None:
         feature_matrix = feature_matrix[:, :n_features]
@@ -56,8 +69,7 @@ def learn_params(activity_h5, model_file, n_components,
     return model
 
 
-def populate_model_dir(h5_dir, model_dir, n_components,
-                       transmat_prior=TRANSMAT_PRIOR, n_features=None):
+def populate_model_dir(h5_dir, model_dir, model_args, n_features=None):
     """Populate the model directory with trained models corresponding
     to each h5 file in h5_dir.
 
@@ -69,11 +81,8 @@ def populate_model_dir(h5_dir, model_dir, n_components,
     model_dir: str
         directory to store models
 
-    n_components: int
-        number of states for each model
-
-    transmat_prior: array-like, shape (n_components, n_components)
-        prior transition matrix for each model
+    model_args: dict
+        model settings (e.g. number of states in the model)
 
     n_features: int
         desired size of feature dimension (set to None if no adjustment should be made)
@@ -86,5 +95,7 @@ def populate_model_dir(h5_dir, model_dir, n_components,
                 activity_h5 = os.path.join(h5_dir, filename)
                 activity_pkl = filename[:-3] + '.pkl'
                 model_file = os.path.join(model_dir, activity_pkl)
-                learn_params(activity_h5, model_file, n_components,
-                             transmat_prior, n_features=n_features)
+                print('%s' % filename)
+                print('--------------')
+                learn_params(activity_h5, model_file, model_args, n_features)
+                print('')

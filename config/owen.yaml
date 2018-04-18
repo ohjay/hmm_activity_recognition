@@ -35,6 +35,8 @@ extract_features:
 
 build_models:
   n_components: 4
+  n_iter: 100
+  m_type: gmm  # either `gaussian` or `gmm`
   h5_dir: /Users/owenjow/hmm_activity_recognition/features
   model_dir: /Users/owenjow/hmm_activity_recognition/models
   n_features: 40
