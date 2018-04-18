@@ -45,7 +45,7 @@ def learn_params(activity_h5, model_file, model_args, n_features=None):
             _args['transmat_prior'] = TRANSMAT_PRIOR_4x4
     _args['n_iter'] = model_args.get('n_iter', 20)
     m_type = model_args.get('m_type', 'gmm').lower()
-    print('Initializing %s model with args:\n%r' % (m_type, _args))
+    print('Initializing `%s` model with args:\n%r' % (m_type, _args))
 
     # Initialize model
     if 'gmmhmm'.startswith(m_type):

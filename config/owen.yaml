@@ -6,7 +6,7 @@
 # --------------------------------------
 
 extract_features:
-  base_dir: /Users/owenjow/hmm_activity_recognition/data/kth
+  base_dir: /Users/owenjow/hmm_activity_recognition/data/kth_train
   # video_path: /Users/owenjow/hmm_activity_recognition/data/kth/walking/person01_walking_d4_uncomp.avi
   save_path: /Users/owenjow/hmm_activity_recognition/features
   debug: False
@@ -25,12 +25,13 @@ extract_features:
     freq_optical_flow: True
     edge: True
     shape: False
+    centroid: True
   denoise:
     kernel_size: 5
     threshold: 3
-  n_bins: 25
+  n_bins: 10
+  edge_dim: 10
   trim: 10
-  edge_dim: 25
   normalize: True
 
 build_models:
@@ -39,11 +40,11 @@ build_models:
   m_type: gmm  # either `gaussian` or `gmm`
   h5_dir: /Users/owenjow/hmm_activity_recognition/features
   model_dir: /Users/owenjow/hmm_activity_recognition/models
-  n_features: 40
+  n_features: 20
 
 classify_activity:
   all: True
-  path: /Users/owenjow/hmm_activity_recognition/data/kth
+  path: /Users/owenjow/hmm_activity_recognition/data/kth_test
   model_dir: /Users/owenjow/hmm_activity_recognition/models
-  eval_fraction: 0.2
-  n_features: 40
+  eval_fraction: 1.0
+  n_features: 20

@@ -25,12 +25,14 @@ MEANS = {
     'freq_optical_flow': 0.0,
     'edge': 0.0,
     'shape': 0.0,
+    'centroid': 0.0,
 }
 STDEVS = {
     'optical_flow': 1.0,
     'freq_optical_flow': 1.0,
     'edge': 1.0,
     'shape': 1.0,
+    'centroid': 1.0,
 }
 
 # Parameters for Shi-Tomasi corner detection
@@ -206,6 +208,15 @@ def feat_edge(img, edges=None):
     mdim4 = mdim2 // 2
     centered = edges_padded[centroid[0]-mdim4:centroid[0]+mdim4, centroid[1]-mdim4:centroid[1]+mdim4]
     return centered
+
+
+def feat_centroid(img):
+    """Extract centroid feature."""
+    h, w = img.shape[0], img.shape[1]
+    _nz_active = tuple(np.nonzero(img))
+    if _nz_active[0].size == 0:
+        _nz_active = ([float(h) / 2], [float(w) / 2])
+    return np.array([np.mean(_nz_active[0]) / h, np.mean(_nz_active[1]) / w])
 
 
 def feat_optical_flow(prev_img, img, p0, st_config, lk_config):
@@ -397,6 +408,7 @@ def process_video(video_path, save_path=None, config=None):
     # Determine whether to use features
     use_edge = use_feature('edge', feature_toggles)
     use_shape = use_feature('shape', feature_toggles)
+    use_centroid = use_feature('centroid', feature_toggles)
     use_optical_flow = use_feature('optical_flow', feature_toggles)
     use_freq_optical_flow = use_feature('freq_optical_flow', feature_toggles)
 
@@ -409,7 +421,7 @@ def process_video(video_path, save_path=None, config=None):
     fgbg = cv2.createBackgroundSubtractorMOG2() if fg_handler == 1 else None
 
     features = []
-    features_indiv = defaultdict(list)
+    features_indiv = defaultdict(list)  # ALL features in `features_indiv` will be coalesced
     avg = None
     prev_img = None
     p0 = None
@@ -447,6 +459,10 @@ def process_video(video_path, save_path=None, config=None):
                 edge_result = feat_edge(frame_gray, edges=frame_edge).flatten()
                 features_indiv['edge'].append(edge_result)
 
+            # [FEATURE] Centroid
+            if use_centroid:
+                features_indiv['centroid'].append(feat_centroid(frame_edge))
+
             # [FEATURE] Optical flow
             # ----------------------
             if use_optical_flow or use_freq_optical_flow:
@@ -470,7 +486,9 @@ def process_video(video_path, save_path=None, config=None):
         # Normalization
         if normalize:
             for k, v in features_indiv.items():
-                features_indiv[k] = (np.array(v) - MEANS[k]) / STDEVS[k]
+                _mean = MEANS.get(k, 0.0)
+                _stdev = STDEVS.get(k, 1.0)
+                features_indiv[k] = (np.array(v) - _mean) / _stdev
 
         # Feature combination
         # -------------------
