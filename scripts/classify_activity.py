@@ -10,6 +10,9 @@ from collections import defaultdict
 from sklearn.externals import joblib
 from .extract_features import process_video
 
+# Method of combining ensembles
+MAJORITY_VOTE = False  # if false, use averaging
+
 
 def classify_single(video_path, models, stats, ef_params, n_features=None):
     """Classify a single video.
@@ -65,10 +68,21 @@ def classify_single(video_path, models, stats, ef_params, n_features=None):
                             log_probs.append(normalized_score)
                         except ValueError:
                             pass  # ignore bad models
-                activity_probs[activity].append(np.mean(log_probs))
-        for activity in activity_probs:
-            activity_probs[activity] = np.mean(activity_probs[activity])
-        sorted_activities = sorted([(k, v) for k, v in activity_probs.items()],
+                if MAJORITY_VOTE:
+                    activity_probs[activity].extend(log_probs)
+                else:
+                    activity_probs[activity].append(np.mean(log_probs))
+        if MAJORITY_VOTE:
+            activities = activity_probs.keys()
+            lp_matrix = np.array([activity_probs[activity] for activity in activities])
+            counts = np.bincount(np.argmax(lp_matrix, axis=0))
+            activity_scores = dict(zip(activities, counts))
+        else:
+            # Take average of log probabilities across ensemble
+            for activity in activity_probs:
+                activity_probs[activity] = np.mean(activity_probs[activity])
+            activity_scores = activity_probs
+        sorted_activities = sorted([(k, v) for k, v in activity_scores.items()],
                                    key=operator.itemgetter(1), reverse=True)
         return sorted_activities
     return None
