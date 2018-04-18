@@ -11,7 +11,7 @@ from sklearn.externals import joblib
 from .extract_features import process_video
 
 
-def classify_single(video_path, models, ef_params, n_features=None):
+def classify_single(video_path, models, stats, ef_params, n_features=None):
     """Classify a single video.
 
     Parameters
@@ -21,6 +21,9 @@ def classify_single(video_path, models, ef_params, n_features=None):
 
     models: dict
         a dictionary containing mappings from activity names to lists of trained HMMs
+
+    stats: dict
+        a dictionary containing mappings from activity names to lists of (mean, stdev) tuples
 
     ef_params: dict
         a dictionary specifying the feature params used for training
@@ -46,12 +49,18 @@ def classify_single(video_path, models, ef_params, n_features=None):
                 _zfm[:, :feature_matrix.shape[1]] = feature_matrix
                 feature_matrix = _zfm
 
-            for activity, model_list in models.items():
+            for activity in models:
+                model_list = models[activity]
+                stats_list = stats[activity]
                 log_probs = []
                 with warnings.catch_warnings():
                     warnings.simplefilter('ignore')
-                    for model in model_list:
-                        log_probs.append(model.score(feature_matrix))
+                    for model, (mean, stdev) in zip(model_list, stats_list):
+                        try:
+                            normalized_score = (model.score(feature_matrix) - mean) / stdev
+                            log_probs.append(normalized_score)
+                        except ValueError:
+                            pass  # ignore bad models
                 activity_probs[activity].append(np.mean(log_probs))
         for activity in activity_probs:
             activity_probs[activity] = np.mean(activity_probs[activity])
@@ -97,6 +106,8 @@ def get_activity_probs(path, model_dir, target,
     """
     # Load models
     models = defaultdict(list)  # {activity: model_list}
+    stats = joblib.load(os.path.join(model_dir, 'stats.pkl'))
+    stats_tmp = defaultdict(list)  # {activity: list of (mean, stdev) tuples}
     for dirpath, dirnames, filenames in os.walk(model_dir):
         for filename in filenames:
             if filename.endswith('.pkl'):
@@ -104,6 +115,8 @@ def get_activity_probs(path, model_dir, target,
                 activity = m.group(1)
                 model = joblib.load(os.path.join(model_dir, filename))
                 models[activity].append(model)
+                stats_tmp[activity].append(stats[filename])
+    stats = stats_tmp
 
     # Determine activity probabilities for videos
     if target == 'all':
@@ -122,7 +135,8 @@ def get_activity_probs(path, model_dir, target,
             eval_set = random.sample(eval_set, sample_size)
             num_correct, total = 0, 0
             for i, video_path in enumerate(eval_set):
-                sorted_activities = classify_single(video_path, models, ef_params, n_features)
+                sorted_activities = classify_single(video_path, models, stats,
+                                                    ef_params, n_features)
                 if sorted_activities is None:
                     continue
                 elif sorted_activities[0][0] == label_activity:
@@ -135,5 +149,5 @@ def get_activity_probs(path, model_dir, target,
         return acc
     else:
         # Classify a single video
-        sorted_activities = classify_single(path, models, ef_params)
+        sorted_activities = classify_single(path, models, stats, ef_params)
         return sorted_activities

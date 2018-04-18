@@ -1,6 +1,7 @@
 #!/usr/bin/env python -W ignore::DeprecationWarning
 
 import os
+import shutil
 import warnings
 import numpy as np
 from hmmlearn import hmm
@@ -15,12 +16,31 @@ TRANSMAT_PRIOR_4x4 = np.array([[1.0/3, 1.0/3, 1.0/3,     0],
                                [0,         0,     0,   1.0]])
 
 
+def rm_rf(dir, confirmation_prompt=None):
+    """Remove a directory and all of its contents.
+    Warning: this is potentially a very dangerous operation.
+    """
+    if type(confirmation_prompt) == str:
+        try:
+            confirmation = raw_input('%s ' % confirmation_prompt)
+        except NameError:
+            confirmation = input('%s ' % confirmation_prompt)
+    else:
+        confirmation = True
+    if (isinstance(confirmation, bool) and confirmation) \
+            or (isinstance(confirmation, str) and confirmation.lower() == 't'):
+        shutil.rmtree(dir)
+        print('Successfully removed `%s` and all of its contents.' % dir)
+        return True
+    else:
+        print('Operation `rm -rf %s` aborted.' % dir)
+        return False
+
+
 def subsample_feature_matrix(feature_matrix, seq_lengths, p):
     """Sample sequences (each with probability P) from the feature matrix.
-    Return an identically formatted feature matrix and lengths.
+    Return a list of feature matrix components and an array of lengths.
     """
-    if p >= 1.0:
-        return feature_matrix, seq_lengths
     mask = np.random.random(len(seq_lengths)) <= p
     the_chosen = []
     the_lengths = []
@@ -31,7 +51,6 @@ def subsample_feature_matrix(feature_matrix, seq_lengths, p):
             the_chosen.append(feature_matrix[curr_idx:curr_idx+curr_len])
             the_lengths.append(curr_len)
         curr_idx += curr_len
-    the_chosen = np.concatenate(the_chosen, axis=0)
     return the_chosen, np.array(the_lengths)
 
 
@@ -67,6 +86,7 @@ def learn_params(activity_h5, model_file, model_args, n_features=None):
     subsample = model_args.get('subsample', 1.0)  # fraction of data to use
     m_type = model_args.get('m_type', 'gmm').lower()
     print('Initializing `%s` model with args:\n%r' % (m_type, _args))
+    print('subsample p: %.2f' % subsample)
 
     # Initialize model
     if 'gmmhmm'.startswith(m_type):
@@ -83,13 +103,22 @@ def learn_params(activity_h5, model_file, model_args, n_features=None):
         feature_matrix = feature_matrix[:, :n_features]
     print('[o] Feature matrix: %r' % (feature_matrix.shape,))
     print('[o] n_sequences: %d' % len(seq_lengths))
-    feature_matrix, seq_lengths = \
+    the_chosen, seq_lengths = \
         subsample_feature_matrix(feature_matrix, seq_lengths, subsample)
+    feature_matrix = np.concatenate(the_chosen, axis=0)
+    log_probs = []
     with warnings.catch_warnings():
         warnings.simplefilter('ignore')
         model.fit(feature_matrix, seq_lengths)
+        for feature_singleseq in the_chosen:
+            try:
+                log_probs.append(model.score(feature_singleseq))
+            except ValueError:
+                print('[-] nan alert! Dropping this model.')
+                return None, None
+    model_stats = (np.mean(log_probs), np.std(log_probs))
     joblib.dump(model, model_file)
-    return model
+    return model, model_stats
 
 
 def populate_model_dir(h5_dir, model_dir, all_model_args, n_features=None):
@@ -111,8 +140,16 @@ def populate_model_dir(h5_dir, model_dir, all_model_args, n_features=None):
     n_features: int
         desired size of feature dimension (set to None if no adjustment should be made)
     """
-    if not os.path.exists(model_dir):
+    try:
         os.makedirs(model_dir)
+    except OSError:
+        if rm_rf(model_dir, '------------------\n'
+                            'ATTENTION REQUIRED\n'
+                            '------------------\n'
+                            '%s already exists! '
+                            'Okay to clear it? (T/F)' % model_dir):
+            os.makedirs(model_dir)
+    stats = {}
     for dirpath, dirnames, filenames in os.walk(h5_dir):
         for filename in filenames:
             if filename.endswith('.h5'):
@@ -124,5 +161,9 @@ def populate_model_dir(h5_dir, model_dir, all_model_args, n_features=None):
                     print('model %d:' % i)
                     activity_pkl = filename[:-3] + str(i) + '.pkl'
                     model_file = os.path.join(model_dir, activity_pkl)
-                    learn_params(activity_h5, model_file, model_args, n_features)
+                    _, model_stats = learn_params(activity_h5, model_file,
+                                                  model_args, n_features)
+                    if model_stats is not None:
+                        stats[activity_pkl] = model_stats
                 print('')
+    joblib.dump(stats, os.path.join(model_dir, 'stats.pkl'))
