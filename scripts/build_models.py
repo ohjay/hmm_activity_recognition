@@ -55,7 +55,7 @@ def subsample_feature_matrix(feature_matrix, seq_lengths, p):
     return the_chosen, np.array(the_lengths)
 
 
-def learn_params(activity_h5, model_file, model_args, n_features=None):
+def learn_params(activity_h5, model_file, model_args, n_features=None, compute_stats=False):
     """Estimate model parameters from observed features.
 
     Save an HMM model (Gaussian emissions) with learned parameters
@@ -75,6 +75,9 @@ def learn_params(activity_h5, model_file, model_args, n_features=None):
 
     n_features: int
         desired size of feature dimension (set to None if no adjustment should be made)
+
+    compute_stats: bool
+        True if we are computing output stats for later normalization
     """
     # Model settings
     # n_components, transmat_prior, init_params, verbose, n_iter
@@ -106,7 +109,8 @@ def learn_params(activity_h5, model_file, model_args, n_features=None):
     print('[o] n_sequences: %d' % len(seq_lengths))
     the_chosen, seq_lengths = \
         subsample_feature_matrix(feature_matrix, seq_lengths, subsample)
-    sample_data.extend(the_chosen)
+    if compute_stats:
+        sample_data.extend(the_chosen)
     feature_matrix = np.concatenate(the_chosen, axis=0)
     with warnings.catch_warnings():
         warnings.simplefilter('ignore')
@@ -120,7 +124,7 @@ def learn_params(activity_h5, model_file, model_args, n_features=None):
     return model
 
 
-def populate_model_dir(h5_dir, model_dir, all_model_args, n_features=None):
+def populate_model_dir(h5_dir, model_dir, all_model_args, n_features=None, compute_stats=False):
     """Populate the model directory with trained models corresponding
     to each h5 file in h5_dir.
 
@@ -138,6 +142,9 @@ def populate_model_dir(h5_dir, model_dir, all_model_args, n_features=None):
 
     n_features: int
         desired size of feature dimension (set to None if no adjustment should be made)
+
+    compute_stats: bool
+        True if we should compute output stats for later normalization
     """
     try:
         os.makedirs(model_dir)
@@ -162,17 +169,18 @@ def populate_model_dir(h5_dir, model_dir, all_model_args, n_features=None):
                     model_file = os.path.join(model_dir, activity_pkl)
                     model = learn_params(activity_h5, model_file,
                                          model_args, n_features)
-                    if model is not None:
+                    if compute_stats and model is not None:
                         stats[activity_pkl] = model
                 print('')
 
     # Do stats
-    with warnings.catch_warnings():
-        warnings.simplefilter('ignore')
-        for k in stats:
-            print('Generating stats for the model `%s`...' % k)
-            model = stats[k]
-            log_probs = [model.score(fs) for fs in sample_data]
-            model_stats = (np.mean(log_probs), np.std(log_probs))
-            stats[k] = model_stats
-    joblib.dump(stats, os.path.join(model_dir, 'stats.pkl'))
+    if compute_stats:
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            for k in stats:
+                print('Generating stats for the model `%s`...' % k)
+                model = stats[k]
+                log_probs = [model.score(fs) for fs in sample_data]
+                model_stats = (np.mean(log_probs), np.std(log_probs))
+                stats[k] = model_stats
+        joblib.dump(stats, os.path.join(model_dir, 'stats.pkl'))

@@ -24,6 +24,7 @@ def classify_single(video_path, models, stats, ef_params, n_features=None):
 
     stats: dict
         a dictionary containing mappings from activity names to lists of (mean, stdev) tuples
+        (pass None if `stats` is not used)
 
     ef_params: dict
         a dictionary specifying the feature params used for training
@@ -51,7 +52,10 @@ def classify_single(video_path, models, stats, ef_params, n_features=None):
 
             for activity in models:
                 model_list = models[activity]
-                stats_list = stats[activity]
+                if stats is None:
+                    stats_list = [(0.0, 1.0) for _ in range(len(model_list))]
+                else:
+                    stats_list = stats[activity]
                 log_probs = []
                 with warnings.catch_warnings():
                     warnings.simplefilter('ignore')
@@ -104,10 +108,15 @@ def get_activity_probs(path, model_dir, target,
         if TARGET == 'all':    a dictionary of classification accuracies for each activity
         if TARGET == 'single': a sorted list of log probabilities for each activity
     """
+    stats_path = os.path.join(model_dir, 'stats.pkl')
+    use_stats = os.path.isfile(stats_path)
+    stats, stats_tmp = None, None
+    if use_stats:
+        stats = joblib.load(stats_path)
+        stats_tmp = defaultdict(list)  # {activity: list of (mean, stdev) tuples}
+
     # Load models
     models = defaultdict(list)  # {activity: model_list}
-    stats = joblib.load(os.path.join(model_dir, 'stats.pkl'))
-    stats_tmp = defaultdict(list)  # {activity: list of (mean, stdev) tuples}
     for dirpath, dirnames, filenames in os.walk(model_dir):
         for filename in filenames:
             if filename.endswith('.pkl'):
@@ -116,7 +125,8 @@ def get_activity_probs(path, model_dir, target,
                     activity = m.group(1)
                     model = joblib.load(os.path.join(model_dir, filename))
                     models[activity].append(model)
-                    stats_tmp[activity].append(stats[filename])
+                    if use_stats:
+                        stats_tmp[activity].append(stats[filename])
                 except AttributeError:
                     pass
     stats = stats_tmp
