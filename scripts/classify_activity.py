@@ -53,7 +53,7 @@ def classify_single(video_path, models, stats, ef_params, n_features=None):
             for activity in models:
                 model_list = models[activity]
                 if stats is None:
-                    stats_list = [(0.0, 1.0) for _ in range(len(model_list))]
+                    stats_list = [(0, 1) for _ in range(len(model_list))]
                 else:
                     stats_list = stats[activity]
                 log_probs = []
@@ -108,12 +108,16 @@ def get_activity_probs(path, model_dir, target,
         if TARGET == 'all':    a dictionary of classification accuracies for each activity
         if TARGET == 'single': a sorted list of log probabilities for each activity
     """
+    # Setup for normalization stats
     stats_path = os.path.join(model_dir, 'stats.pkl')
     use_stats = os.path.isfile(stats_path)
-    stats, stats_tmp = None, None
     if use_stats:
+        print('[o]     normalizing model output')
         stats = joblib.load(stats_path)
         stats_tmp = defaultdict(list)  # {activity: list of (mean, stdev) tuples}
+    else:
+        stats, stats_tmp = None, None
+        print('[o] NOT normalizing model output')
 
     # Load models
     models = defaultdict(list)  # {activity: model_list}
