@@ -170,6 +170,7 @@ def populate_model_dir(h5_dir, model_dir, all_model_args, n_features=None):
     with warnings.catch_warnings():
         warnings.simplefilter('ignore')
         for k in stats:
+            print('Generating stats for the model `%s`...' % k)
             model = stats[k]
             log_probs = [model.score(fs) for fs in sample_data]
             model_stats = (np.mean(log_probs), np.std(log_probs))
