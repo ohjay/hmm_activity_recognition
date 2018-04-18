@@ -36,12 +36,38 @@ extract_features:
   sequences_path: /Users/owenjow/hmm_activity_recognition/data/kth/sequences.txt
 
 build_models:
-  n_components: 4
-  n_iter: 100
-  m_type: gmm  # either `gaussian` or `gmm`
   h5_dir: /Users/owenjow/hmm_activity_recognition/features
   model_dir: /Users/owenjow/hmm_activity_recognition/models
   n_features: 42
+  mconf:  # configs for each model
+    - n_components: 2
+      n_iter: 20
+      m_type: gmm
+      subsample: 0.9
+    - n_components: 3
+      n_iter: 20
+      m_type: gmm
+      subsample: 0.7
+    - n_components: 3
+      n_iter: 50
+      m_type: gaussian
+      subsample: 0.7
+    - n_components: 4
+      n_iter: 20
+      m_type: gmm
+      subsample: 0.5
+    - n_components: 4
+      n_iter: 20
+      m_type: gmm
+      subsample: 1.0
+    - n_components: 4
+      n_iter: 50
+      m_type: gaussian
+      subsample: 1.0
+    - n_components: 5
+      n_iter: 20
+      m_type: gmm
+      subsample: 1.0
 
 classify_activity:
   all: True

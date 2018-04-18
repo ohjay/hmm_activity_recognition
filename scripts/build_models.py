@@ -15,6 +15,26 @@ TRANSMAT_PRIOR_4x4 = np.array([[1.0/3, 1.0/3, 1.0/3,     0],
                                [0,         0,     0,   1.0]])
 
 
+def subsample_feature_matrix(feature_matrix, seq_lengths, p):
+    """Sample sequences (each with probability P) from the feature matrix.
+    Return an identically formatted feature matrix and lengths.
+    """
+    if p >= 1.0:
+        return feature_matrix, seq_lengths
+    mask = np.random.random(len(seq_lengths)) <= p
+    the_chosen = []
+    the_lengths = []
+    curr_idx = 0
+    for i in range(len(seq_lengths)):
+        curr_len = seq_lengths[i]
+        if mask[i]:
+            the_chosen.append(feature_matrix[curr_idx:curr_idx+curr_len])
+            the_lengths.append(curr_len)
+        curr_idx += curr_len
+    the_chosen = np.concatenate(the_chosen, axis=0)
+    return the_chosen, np.array(the_lengths)
+
+
 def learn_params(activity_h5, model_file, model_args, n_features=None):
     """Estimate model parameters from observed features.
 
@@ -44,6 +64,7 @@ def learn_params(activity_h5, model_file, model_args, n_features=None):
         if _args['n_components'] == 4:
             _args['transmat_prior'] = TRANSMAT_PRIOR_4x4
     _args['n_iter'] = model_args.get('n_iter', 20)
+    subsample = model_args.get('subsample', 1.0)  # fraction of data to use
     m_type = model_args.get('m_type', 'gmm').lower()
     print('Initializing `%s` model with args:\n%r' % (m_type, _args))
 
@@ -62,6 +83,8 @@ def learn_params(activity_h5, model_file, model_args, n_features=None):
         feature_matrix = feature_matrix[:, :n_features]
     print('[o] Feature matrix: %r' % (feature_matrix.shape,))
     print('[o] n_sequences: %d' % len(seq_lengths))
+    feature_matrix, seq_lengths = \
+        subsample_feature_matrix(feature_matrix, seq_lengths, subsample)
     with warnings.catch_warnings():
         warnings.simplefilter('ignore')
         model.fit(feature_matrix, seq_lengths)
@@ -69,7 +92,7 @@ def learn_params(activity_h5, model_file, model_args, n_features=None):
     return model
 
 
-def populate_model_dir(h5_dir, model_dir, model_args, n_features=None):
+def populate_model_dir(h5_dir, model_dir, all_model_args, n_features=None):
     """Populate the model directory with trained models corresponding
     to each h5 file in h5_dir.
 
@@ -81,8 +104,9 @@ def populate_model_dir(h5_dir, model_dir, model_args, n_features=None):
     model_dir: str
         directory to store models
 
-    model_args: dict
-        model settings (e.g. number of states in the model)
+    all_model_args: list
+        settings for each model in the ensemble
+        (if an ensemble is not desired, should be length 1)
 
     n_features: int
         desired size of feature dimension (set to None if no adjustment should be made)
@@ -93,9 +117,12 @@ def populate_model_dir(h5_dir, model_dir, model_args, n_features=None):
         for filename in filenames:
             if filename.endswith('.h5'):
                 activity_h5 = os.path.join(h5_dir, filename)
-                activity_pkl = filename[:-3] + '.pkl'
-                model_file = os.path.join(model_dir, activity_pkl)
+
                 print('%s' % filename)
                 print('--------------')
-                learn_params(activity_h5, model_file, model_args, n_features)
+                for i, model_args in enumerate(all_model_args):
+                    print('model %d:' % i)
+                    activity_pkl = filename[:-3] + str(i) + '.pkl'
+                    model_file = os.path.join(model_dir, activity_pkl)
+                    learn_params(activity_h5, model_file, model_args, n_features)
                 print('')

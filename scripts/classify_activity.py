@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import os
+import re
 import random
 import warnings
 import operator
@@ -19,7 +20,7 @@ def classify_single(video_path, models, ef_params, n_features=None):
         path to a single video
 
     models: dict
-        a dictionary containing mappings from activity names to trained HMMs
+        a dictionary containing mappings from activity names to lists of trained HMMs
 
     ef_params: dict
         a dictionary specifying the feature params used for training
@@ -45,11 +46,13 @@ def classify_single(video_path, models, ef_params, n_features=None):
                 _zfm[:, :feature_matrix.shape[1]] = feature_matrix
                 feature_matrix = _zfm
 
-            for activity, model in models.items():
+            for activity, model_list in models.items():
+                log_probs = []
                 with warnings.catch_warnings():
                     warnings.simplefilter('ignore')
-                    log_prob = model.score(feature_matrix)
-                activity_probs[activity].append(log_prob)
+                    for model in model_list:
+                        log_probs.append(model.score(feature_matrix))
+                activity_probs[activity].append(np.mean(log_probs))
         for activity in activity_probs:
             activity_probs[activity] = np.mean(activity_probs[activity])
         sorted_activities = sorted([(k, v) for k, v in activity_probs.items()],
@@ -93,13 +96,14 @@ def get_activity_probs(path, model_dir, target,
         if TARGET == 'single': a sorted list of log probabilities for each activity
     """
     # Load models
-    models = {}  # {activity: model}
+    models = defaultdict(list)  # {activity: model_list}
     for dirpath, dirnames, filenames in os.walk(model_dir):
         for filename in filenames:
             if filename.endswith('.pkl'):
-                activity = filename[:-4]
+                m = re.match(r'([a-zA-Z]+)\d+.pkl', filename)
+                activity = m.group(1)
                 model = joblib.load(os.path.join(model_dir, filename))
-                models[activity] = model
+                models[activity].append(model)
 
     # Determine activity probabilities for videos
     if target == 'all':

@@ -52,8 +52,9 @@ def build_models(config):
     bm_params = config['build_models']
     h5_dir = bm_params['h5_dir']
     model_dir = bm_params['model_dir']
+    all_model_args = bm_params['mconf']
     n_features = bm_params.get('n_features', None)
-    bm.populate_model_dir(h5_dir, model_dir, model_args=bm_params, n_features=n_features)
+    bm.populate_model_dir(h5_dir, model_dir, all_model_args, n_features)
 
 
 def classify_activity(config):
