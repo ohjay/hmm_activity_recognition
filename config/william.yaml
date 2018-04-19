@@ -5,22 +5,68 @@
 # Modes
 # --------------------------------------
 
+extract_features:
+  # video_path: /Users/owenjow/hmm_activity_recognition/data/kth/train/walking/person01_walking_d4_uncomp.avi
+  # video_dir: /home/wjow/school/compsci/ee126/proj/hmm_activity_recognition/data/kth/walking
+  base_dir: /home/wjow/school/compsci/ee126/proj/hmm_activity_recognition/data/kth/
+  save_path: /home/wjow/school/compsci/ee126/proj/hmm_activity_recognition/features/
+  debug: False
+  verbose: False
+  fg_handler: 0
+  st:
+    maxCorners: 200
+    qualityLevel: 0.05
+    minDistance: 3
+    blockSize: 10
+  lk:
+    winSize: (15, 15)
+    maxLevel: 2
+  feature_toggles:
+    optical_flow: False
+    freq_optical_flow: True
+    dense_optical_flow: False
+    edge: True
+    shape: False
+    centroid: True
+  denoise:
+    kernel_size: 5
+    threshold: 3
+  dense_params:
+    roi_h: 0.8
+    roi_w: 0.4
+    pyr_scale: 0.5
+    levels: 3
+    winsize: 15
+    iterations: 3
+    poly_n: 5
+    poly_sigma: 1.2
+    n_components: 10  # for dimensionality reduction
+  n_bins: 10
+  edge_dim: 10
+  trim: 1
+  normalize: True
+  sequences_path: /Users/owenjow/hmm_activity_recognition/data/kth/sequences.txt
+
+build_models:
+  h5_dir: /Users/owenjow/hmm_activity_recognition/features
+  model_dir: /Users/owenjow/hmm_activity_recognition/models
+  n_features: infer  # only need to use this if `optical_flow` is one of the features
+  compute_stats: False
+  mconf:  # configs for each model
+    - n_components: 4
+      n_iter: 20
+      m_type: gmm
+      subsample: 1.0
+
 classify_activity:
+  all: True
+  path: /Users/owenjow/hmm_activity_recognition/data/kth/test
   model_dir: /home/wjow/school/compsci/ee126/proj/hmm_activity_recognition/models/
+  eval_fraction: 1.0
+  n_features: infer
         
 build_models:
   n_components: 4
   h5_dir: /home/wjow/school/compsci/ee126/proj/hmm_activity_recognition/features/
   model_dir: /home/wjow/school/compsci/ee126/proj/hmm_activity_recognition/models/
 
-extract_features:
-  video_dir: /home/wjow/school/compsci/ee126/proj/hmm_activity_recognition/data/kth/walking
-  save_path: features/walking.h5
-  st:
-    maxCorners: 100
-    qualityLevel: 0.3
-    minDistance: 7
-    blockSize: 7
-  lk:
-    winSize: (15, 15)
-    maxLevel: 2

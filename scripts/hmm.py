@@ -9,11 +9,8 @@ from hmmlearn import _hmmc
 
 class GaussianHMM:
     """Hidden Markov Model with Gaussian emissions.
-       Created as an exercise and uses code from the
+       Created as an exercise and based off of the
        hmmlearn library.
-
-       The Viterbi, Forward, and Backward algorithms
-       are custom implementations.
 
     Parameters
     ----------
@@ -151,14 +148,23 @@ class GaussianHMM:
             logprob += logprobij
         return logprob
 
-    def _viterbi_pass(self, framelogprob):
-        # TODO
-
     def _forward_pass(self, framelogprob):
-        # TODO
+        n_samples, n_components = framelogprob.shape
+        fwdlattice = np.zeros((n_samples, n_components))
+        _hmmc._forward(n_samples, n_components,
+                       np.log(self.startprob_),
+                       np.log(self.transmat_),
+                       framelogprob, fwdlattice)
+        return logsumexp(fwdlattice[-1]), fwdlattice
 
     def _backwardpass(self, framelogprob):
-        # TODO
+        n_samples, n_components = framelogprob.shape
+        bwdlattice = np.zeros((n_samples, n_components))
+        _hmmc._backward(n_samples, n_components,
+                        np.log(self.startprob_),
+                        np.log(self.transmat_),
+                        framelogprob, bwdlattice)
+        return bwdlattice
 
     def _compute_posteriors(self, fdwlattice, bwdlattice):
         # gamma is guaranteed to be correctly normalized by logprob at
