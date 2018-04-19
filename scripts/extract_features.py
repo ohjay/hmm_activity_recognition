@@ -21,7 +21,7 @@ from .dataset_utils import read_sequences_file
 OPTFLOW_MIN = -1.0
 OPTFLOW_MAX = 1.0
 
-NORMALIZE_FEAT_CENTROID = False
+NORMALIZE_FEAT_CENTROID = True
 
 MEANS = {
     'optical_flow': 0.0,
@@ -252,8 +252,8 @@ def feat_optical_flow(prev_img, img, p0, st_config, lk_config):
 
     Returns
     -------
-    flow: ndarray
-        optical flow features
+    flow: tuple
+        (opt_flow_y, opt_flow_x) tuple, i.e. optical flow features
 
     p0: ndarray
         updated (?) points to track
@@ -268,20 +268,24 @@ def feat_optical_flow(prev_img, img, p0, st_config, lk_config):
         good_old = p0[status == 1]
         flow = good_new - good_old
         p0 = good_new.reshape(-1, 1, 2)
-    return flow, p0
+    if flow.size == 0 or len(flow.shape) == 1:
+        flow_y, flow_x = flow.flatten(), flow.flatten()
+    else:
+        flow_y, flow_x = flow[:, 0], flow[:, 1]
+    return (flow_y, flow_x), p0
 
 
 def feat_freq_optical_flow(prev_img, img, p0, st_config, lk_config, n_bins):
     """Extract "histogram of flow" features.
 
     Accepts the same parameters as `feat_optical_flow`,
-    but returns a histogram instead of the raw optical flow features.
+    but returns histograms instead of the raw optical flow features.
     """
-    flow, p0 = feat_optical_flow(prev_img, img, p0, st_config, lk_config)
-    flow = flow.flatten()
+    (flow_y, flow_x), p0 = feat_optical_flow(prev_img, img, p0, st_config, lk_config)
     bins = np.concatenate(([-200.0], np.linspace(OPTFLOW_MIN, OPTFLOW_MAX, n_bins - 1), [200.0]))
-    hist, bin_edges = np.histogram(flow, bins=bins)
-    return hist, p0
+    hist_y, _ = np.histogram(flow_y, bins=bins)
+    hist_x, _ = np.histogram(flow_x, bins=bins)
+    return (hist_y, hist_x), p0
 
 
 def feat_dense_optical_flow(prev_img, img, dense_params):
@@ -517,15 +521,19 @@ def process_video(video_path, save_path=None, config=None):
             # [FEATURE] Optical flow variants
             # -------------------------------
             if use_optical_flow or use_freq_optical_flow:
-                _k = 'freq_optical_flow' if use_freq_optical_flow else 'optical_flow'
                 if prev_img is None:
-                    features_indiv[_k].append(np.zeros(n_bins))
+                    flow_y = np.zeros(n_bins)
+                    flow_x = np.zeros(n_bins)
+                elif use_freq_optical_flow:
+                    (flow_y, flow_x), p0 = feat_freq_optical_flow(prev_img, frame_edge, p0,
+                                                                  st_config, lk_config, n_bins)
                 else:
-                    if use_freq_optical_flow:
-                        flow, p0 = feat_freq_optical_flow(prev_img, frame_edge, p0, st_config, lk_config, n_bins)
-                    else:
-                        flow, p0 = feat_optical_flow(prev_img, frame_edge, p0, st_config, lk_config)
-                    features_indiv[_k].append(flow)
+                    (flow_y, flow_x), p0 = feat_optical_flow(prev_img, frame_edge, p0,
+                                                             st_config, lk_config)
+                optflow_k = 'freq_optical_flow_%s' \
+                    if use_freq_optical_flow else 'optical_flow_%s'
+                features_indiv[optflow_k % 'y'].append(flow_y)
+                features_indiv[optflow_k % 'x'].append(flow_x)
                 prev_img = frame_edge.copy()
             elif use_dense_optical_flow:
                 if prev_img is None:
