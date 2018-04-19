@@ -208,7 +208,7 @@ def feat_shape(img, fg_mask):
 
 def feat_edge(img, edges=None):
     """Extract edge features.
-    This consists of the Fourier transform of the centroid-centered edge representation.
+    This consists of the centroid-centered edge representation.
     """
     if edges is None:
         edges = cv2.Canny(img, 0, 255)
