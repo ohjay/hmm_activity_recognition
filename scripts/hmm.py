@@ -9,9 +9,11 @@ from hmmlearn import _hmmc
 
 class GaussianHMM:
     """Hidden Markov Model with Gaussian emissions.
-       Created as an exercise and based off of the
-       models from the hmmlearn library (in some
-       parts more heavily than others...).
+       Created as an exercise and uses code from the
+       hmmlearn library.
+
+       The Viterbi, Forward, and Backward algorithms
+       are custom implementations.
 
     Parameters
     ----------
@@ -159,7 +161,13 @@ class GaussianHMM:
         # TODO
 
     def _compute_posteriors(self, fdwlattice, bwdlattice):
-        # TODO
+        # gamma is guaranteed to be correctly normalized by logprob at
+        # all frames, unless we do approximate inference using pruning.
+        # So, we will normalize each frame explicitly in case we
+        # pruned too aggressively.
+        log_gamma = fwdlattice + bwdlattice
+        log_normalize(log_gamma, axis=1)
+        return np.exp(log_gamma)
     
     def _compute_log_likelihood(self, X):
         """Compute the log likelihood of feature matrix X"""
