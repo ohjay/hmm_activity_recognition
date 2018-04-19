@@ -40,7 +40,7 @@ extract_features:
     poly_n: 5
     poly_sigma: 1.2
     n_components: 10  # for dimensionality reduction
-  n_bins: 10
+  n_bins: 20
   edge_dim: 10
   trim: 1
   normalize: True
@@ -55,15 +55,7 @@ build_models:
     - n_components: 4
       n_iter: 20
       m_type: gmm
-      subsample: 0.9
-    - n_components: 4
-      n_iter: 20
-      m_type: gmm
-      subsample: 0.9
-    - n_components: 4
-      n_iter: 20
-      m_type: gmm
-      subsample: 0.9
+      subsample: 1.0
 
 classify_activity:
   all: True

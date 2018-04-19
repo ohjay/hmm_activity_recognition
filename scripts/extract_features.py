@@ -522,18 +522,18 @@ def process_video(video_path, save_path=None, config=None):
             # -------------------------------
             if use_optical_flow or use_freq_optical_flow:
                 if prev_img is None:
-                    flow_y = np.zeros(n_bins)
-                    flow_x = np.zeros(n_bins)
+                    flow = np.zeros(n_bins)
                 elif use_freq_optical_flow:
-                    (flow_y, flow_x), p0 = feat_freq_optical_flow(prev_img, frame_edge, p0,
-                                                                  st_config, lk_config, n_bins)
+                    (flow_y, flow_x), p0 = feat_freq_optical_flow(
+                        prev_img, frame_edge, p0, st_config, lk_config, n_bins)
+                    flow = flow_y + flow_x
                 else:
-                    (flow_y, flow_x), p0 = feat_optical_flow(prev_img, frame_edge, p0,
-                                                             st_config, lk_config)
-                optflow_k = 'freq_optical_flow_%s' \
-                    if use_freq_optical_flow else 'optical_flow_%s'
-                features_indiv[optflow_k % 'y'].append(flow_y)
-                features_indiv[optflow_k % 'x'].append(flow_x)
+                    (flow_y, flow_x), p0 = feat_optical_flow(
+                        prev_img, frame_edge, p0, st_config, lk_config)
+                    flow = np.array([flow_y, flow_x]).flatten()
+                optflow_k = 'freq_optical_flow' \
+                    if use_freq_optical_flow else 'optical_flow'
+                features_indiv[optflow_k].append(flow)
                 prev_img = frame_edge.copy()
             elif use_dense_optical_flow:
                 if prev_img is None:
