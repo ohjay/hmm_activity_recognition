@@ -21,6 +21,8 @@ from .dataset_utils import read_sequences_file
 OPTFLOW_MIN = -1.0
 OPTFLOW_MAX = 1.0
 
+NORMALIZE_FEAT_CENTROID = False
+
 MEANS = {
     'optical_flow': 0.0,
     'freq_optical_flow': 0.0,
@@ -163,6 +165,17 @@ def condense(feature_list):
     return np.concatenate(feature_list, axis=0)
 
 
+def compute_centroid(img, normalize=False):
+    """Return the centroid of IMG as a (y, x) position."""
+    h, w = img.shape[0], img.shape[1]
+    _nz_active = tuple(np.nonzero(img))
+    if _nz_active[0].size == 0:
+        _nz_active = ([float(h) / 2], [float(w) / 2])
+    if normalize:
+        return np.array([np.mean(_nz_active[0]) / h, np.mean(_nz_active[1]) / w])
+    return np.array([np.mean(_nz_active[0]), np.mean(_nz_active[1])])
+
+
 def feat_shape(img, fg_mask):
     """Extract shape features.
 
@@ -214,11 +227,7 @@ def feat_edge(img, edges=None):
 
 def feat_centroid(img):
     """Extract centroid feature."""
-    h, w = img.shape[0], img.shape[1]
-    _nz_active = tuple(np.nonzero(img))
-    if _nz_active[0].size == 0:
-        _nz_active = ([float(h) / 2], [float(w) / 2])
-    return np.array([np.mean(_nz_active[0]) / h, np.mean(_nz_active[1]) / w])
+    return compute_centroid(img, normalize=NORMALIZE_FEAT_CENTROID)
 
 
 def feat_optical_flow(prev_img, img, p0, st_config, lk_config):
@@ -273,6 +282,35 @@ def feat_freq_optical_flow(prev_img, img, p0, st_config, lk_config, n_bins):
     bins = np.concatenate(([-200.0], np.linspace(OPTFLOW_MIN, OPTFLOW_MAX, n_bins - 1), [200.0]))
     hist, bin_edges = np.histogram(flow, bins=bins)
     return hist, p0
+
+
+def feat_dense_optical_flow(prev_img, img, dense_params):
+    """Extract dense optical flow features.
+    Returns a flow over a ROI whose dimensions are specified by DENSE_PARAMS.
+    """
+    # Extract ROI
+    h, w = img.shape
+    roi_h = int(h * dense_params['roi_h'])
+    roi_w = int(w * dense_params['roi_w'])
+    prev_padded = np.pad(prev_img, ((roi_h, roi_h), (roi_w, roi_w)), 'wrap')
+    curr_padded = np.pad(img, ((roi_h, roi_h), (roi_w, roi_w)), 'wrap')
+    cy, cx = compute_centroid(img)
+    cy, cx = int(cy) + roi_h, int(cx) + roi_w
+    prev_roi = prev_padded[cy-roi_h/2:cy+roi_h/2, cx-roi_w/2:cx+roi_w/2]
+    curr_roi = curr_padded[cy-roi_h/2:cy+roi_h/2, cx-roi_w/2:cx+roi_w/2]
+
+    # Compute dense optical flow using Farneback's algorithm
+    pyr_scale = dense_params.get('pyr_scale', 0.5)
+    levels = dense_params.get('levels', 3)
+    winsize = dense_params.get('winsize', 15)
+    iterations = dense_params.get('iterations', 3)
+    poly_n = dense_params.get('poly_n', 5)
+    poly_sigma = dense_params.get('poly_sigma', 1.2)
+    flow = cv2.calcOpticalFlowFarneback(
+        prev_roi, curr_roi, flow=np.zeros_like(prev_img, dtype=np.float32),
+        pyr_scale=pyr_scale, levels=levels, winsize=winsize, iterations=iterations,
+        poly_n=poly_n, poly_sigma=poly_sigma, flags=cv2.OPTFLOW_FARNEBACK_GAUSSIAN)
+    return np.reshape(flow, (-1, flow.shape[-1]))
 
 
 # ====================
@@ -414,6 +452,7 @@ def process_video(video_path, save_path=None, config=None):
     trim = config.get('trim', 0)  # how many frames to ignore on each end
     edge_dim = config.get('edge_dim', 20)
     normalize = config.get('normalize', True)
+    dense_params = config.get('dense_params', None)  # must be defined if using dense opt flow
 
     # Determine whether to use features
     use_edge = use_feature('edge', feature_toggles)
@@ -421,6 +460,7 @@ def process_video(video_path, save_path=None, config=None):
     use_centroid = use_feature('centroid', feature_toggles)
     use_optical_flow = use_feature('optical_flow', feature_toggles)
     use_freq_optical_flow = use_feature('freq_optical_flow', feature_toggles)
+    use_dense_optical_flow = use_feature('dense_optical_flow', feature_toggles)
 
     # Load Shi-Tomasi and Lucas-Kanade configs
     st_config = _nondestructive_update(ST_PARAMS, st, disallow_strings=True)
@@ -441,6 +481,7 @@ def process_video(video_path, save_path=None, config=None):
         for idx, frame in enumerate(videogen):
             frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             frame_edge = cv2.Canny(frame_gray, 0, 255)
+            h, w = frame_gray.shape
 
             # Background subtraction
             # ----------------------
@@ -473,8 +514,8 @@ def process_video(video_path, save_path=None, config=None):
             if use_centroid:
                 features_indiv['centroid'].append(feat_centroid(frame_edge))
 
-            # [FEATURE] Optical flow
-            # ----------------------
+            # [FEATURE] Optical flow variants
+            # -------------------------------
             if use_optical_flow or use_freq_optical_flow:
                 _k = 'freq_optical_flow' if use_freq_optical_flow else 'optical_flow'
                 if prev_img is None:
@@ -486,12 +527,31 @@ def process_video(video_path, save_path=None, config=None):
                         flow, p0 = feat_optical_flow(prev_img, frame_edge, p0, st_config, lk_config)
                     features_indiv[_k].append(flow)
                 prev_img = frame_edge.copy()
+            elif use_dense_optical_flow:
+                if prev_img is None:
+                    roi_h = int(h * dense_params['roi_h'])
+                    roi_w = int(w * dense_params['roi_w'])
+                    features_indiv['dense_optical_flow_y'].append(np.zeros((roi_h * roi_w)))
+                    features_indiv['dense_optical_flow_x'].append(np.zeros((roi_h * roi_w)))
+                else:
+                    flow = feat_dense_optical_flow(prev_img, frame_edge, dense_params)
+                    features_indiv['dense_optical_flow_y'].append(flow[:, 0])
+                    features_indiv['dense_optical_flow_x'].append(flow[:, 1])
+                prev_img = frame_edge.copy()
 
         # Reduce dimensionality of edges
         if 'edge' in features_indiv:
             pca = PCA(n_components=edge_dim)
             edge_std = StandardScaler().fit_transform(np.array(features_indiv['edge']))
             features_indiv['edge'] = pca.fit_transform(edge_std)
+
+        # Reduce dimensionality of dense optical flow fields
+        for ax in ('y', 'x'):
+            if 'dense_optical_flow_%s' % ax in features_indiv:
+                pca = PCA(n_components=dense_params.get('n_components'))
+                d_optflow_std = StandardScaler().fit_transform(
+                    np.array(features_indiv['dense_optical_flow_%s' % ax]))
+                features_indiv['dense_optical_flow_%s' % ax] = pca.fit_transform(d_optflow_std)
 
         # Normalization
         if normalize:
