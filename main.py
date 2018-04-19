@@ -55,6 +55,8 @@ def build_models(config):
     all_model_args = bm_params['mconf']
     compute_stats = bm_params.get('compute_stats', False)
     n_features = bm_params.get('n_features', None)
+    if type(n_features) != int:
+        n_features = None
     bm.populate_model_dir(h5_dir, model_dir, all_model_args, n_features, compute_stats)
 
 
@@ -66,6 +68,8 @@ def classify_activity(config):
     target = 'all' if bool(ca_params.get('all', False)) else 'single'
     eval_fraction = ca_params.get('eval_fraction', 1.0)
     n_features = ca_params.get('n_features', None)
+    if type(n_features) != int:
+        n_features = None
     result = ca.get_activity_probs(path, model_dir, target, ef_params,
                                    eval_fraction, n_features=n_features)
     pprint(result)

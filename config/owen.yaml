@@ -49,7 +49,7 @@ extract_features:
 build_models:
   h5_dir: /Users/owenjow/hmm_activity_recognition/features
   model_dir: /Users/owenjow/hmm_activity_recognition/models
-  n_features: 32
+  n_features: infer  # only need to use this if `optical_flow` is one of the features
   compute_stats: False
   mconf:  # configs for each model
     - n_components: 4
@@ -62,4 +62,4 @@ classify_activity:
   path: /Users/owenjow/hmm_activity_recognition/data/kth/test
   model_dir: /Users/owenjow/hmm_activity_recognition/models
   eval_fraction: 1.0
-  n_features: 32
+  n_features: infer
