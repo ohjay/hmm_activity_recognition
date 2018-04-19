@@ -6,6 +6,7 @@ from sklearn import cluster
 from sklearn.mixture import gmm
 from skleran.preprocessing import normalize
 from hmmlearn import _hmmc
+from scipy.misc import logsumexp
 
 class GaussianHMM:
     """Hidden Markov Model with Gaussian emissions.
@@ -151,19 +152,41 @@ class GaussianHMM:
     def _forward_pass(self, framelogprob):
         n_samples, n_components = framelogprob.shape
         fwdlattice = np.zeros((n_samples, n_components))
-        _hmmc._forward(n_samples, n_components,
-                       np.log(self.startprob_),
-                       np.log(self.transmat_),
-                       framelogprob, fwdlattice)
+        lattice_cell = np.zeros(n_components)
+        log_startprob = np.log(self.startprob_)
+        log_transmat = np.log(self.transmat_)
+        # initialize
+        for i in range(n_components):
+            fwdlattice[0, i] = log_startprob + framelogprob[0, i]
+
+        # time step
+        for t in range(1, n_samples):
+            for j in range(n_components):
+                for i in range(n_components):
+                    lattice_cell[i] = fwdlattice[t - 1, i] + log_transmat[i, j]
+
+                fwdlattice[t, j] = logsumexp(lattice_cell) + framelogprob[t, j]
+
         return logsumexp(fwdlattice[-1]), fwdlattice
 
     def _backwardpass(self, framelogprob):
         n_samples, n_components = framelogprob.shape
         bwdlattice = np.zeros((n_samples, n_components))
-        _hmmc._backward(n_samples, n_components,
-                        np.log(self.startprob_),
-                        np.log(self.transmat_),
-                        framelogprob, bwdlattice)
+        lattice_cell = np.zeros(n_components)
+        log_startprob = np.log(self.startprob_)
+        log_transmat = np.log(self.transmat_)
+
+        for i in range(n_components):
+            bwdlattice[n_samples - 1, i] = 0.0
+
+        for t in range(n_samples - 2, -1, -1):
+            for i in range(n_components):
+                for j in range(n_components):
+                    lattice_cell[j] = (log_transmat[i, j]
+                                      + framelogprob[t + 1, j]
+                                      + bwdlattice[t + 1, j])
+                bwdlattice[t, i] = logsumexp(lattice_cell)
+
         return bwdlattice
 
     def _compute_posteriors(self, fdwlattice, bwdlattice):
