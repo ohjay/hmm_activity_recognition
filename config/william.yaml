@@ -45,11 +45,11 @@ extract_features:
   edge_dim: 10
   trim: 1
   normalize: True
-  sequences_path: /Users/owenjow/hmm_activity_recognition/data/kth/sequences.txt
+  sequences_path: /home/wjow/school/compsci/ee126/proj/hmm_activity_recognition/data/kth/sequences.txt
 
 build_models:
-  h5_dir: /Users/owenjow/hmm_activity_recognition/features
-  model_dir: /Users/owenjow/hmm_activity_recognition/models
+  h5_dir: /home/wjow/school/compsci/ee126/proj/hmm_activity_recognition/features/
+  model_dir: /home/wjow/school/compsci/ee126/proj/hmm_activity_recognition/models/
   n_features: infer  # only need to use this if `optical_flow` is one of the features
   compute_stats: False
   mconf:  # configs for each model
@@ -60,13 +60,8 @@ build_models:
 
 classify_activity:
   all: True
-  path: /Users/owenjow/hmm_activity_recognition/data/kth/test
+  path: /home/wjow/school/compsci/ee126/proj/hmm_activity_recognition/kth/test/
   model_dir: /home/wjow/school/compsci/ee126/proj/hmm_activity_recognition/models/
   eval_fraction: 1.0
   n_features: infer
         
-build_models:
-  n_components: 4
-  h5_dir: /home/wjow/school/compsci/ee126/proj/hmm_activity_recognition/features/
-  model_dir: /home/wjow/school/compsci/ee126/proj/hmm_activity_recognition/models/
-
