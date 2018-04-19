@@ -45,7 +45,7 @@ extract_features:
   edge_dim: 10
   trim: 1
   normalize: True
-  sequences_path: /home/wjow/school/compsci/ee126/proj/hmm_activity_recognition/data/kth/sequences.txt
+  sequences_path: /home/wjow/school/compsci/ee126/proj/hmm_activity_recognition/data/kth/00sequences.txt
 
 build_models:
   h5_dir: /home/wjow/school/compsci/ee126/proj/hmm_activity_recognition/features/
