@@ -66,12 +66,16 @@ def classify_single(video_path, models, stats, ef_params, n_features=None):
                         try:
                             normalized_score = (model.score(feature_matrix) - mean) / stdev
                             log_probs.append(normalized_score)
-                        except ValueError:
+                        except ValueError as e:
+                            print('WARNING: bad model for %s' % activity)
+                            print(e)
                             pass  # ignore bad models
+                # Consolidate information from different models for the activity
                 if MAJORITY_VOTE:
                     activity_probs[activity].extend(log_probs)
                 else:
                     activity_probs[activity].append(np.mean(log_probs))
+        # Consolidate information from different sequences in the video
         if MAJORITY_VOTE:
             activities = activity_probs.keys()
             lp_matrix = np.array([activity_probs[activity] for activity in activities])

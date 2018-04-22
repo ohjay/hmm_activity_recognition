@@ -105,8 +105,8 @@ def learn_params(activity_h5, model_file, model_args, n_features=None, compute_s
     feature_matrix, seq_lengths = load_features(activity_h5)
     if n_features is not None:
         feature_matrix = feature_matrix[:, :n_features]
-    print('[o] Feature matrix: %r' % (feature_matrix.shape,))
-    print('[o] n_sequences: %d' % len(seq_lengths))
+    print('[o] Loaded feature matrix: %r' % (feature_matrix.shape,))
+    print('[o] Loaded n_sequences: %d' % len(seq_lengths))
     the_chosen, seq_lengths = \
         subsample_feature_matrix(feature_matrix, seq_lengths, subsample)
     if compute_stats:
@@ -114,6 +114,7 @@ def learn_params(activity_h5, model_file, model_args, n_features=None, compute_s
     feature_matrix = np.concatenate(the_chosen, axis=0)
     with warnings.catch_warnings():
         warnings.simplefilter('ignore')
+        print('[o] Fitting to feature matrix of shape %r.' % (feature_matrix.shape,))
         model.fit(feature_matrix, seq_lengths)
         try:
             model.score(the_chosen[0])
