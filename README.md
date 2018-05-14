@@ -70,6 +70,8 @@ extract_features:
     optical_flow: False
     freq_optical_flow: False
     dense_optical_flow: True
+    # If True, PCA will not be applied.
+    freq_dense_optical_flow: False
     edge: True
     centroid: True
 

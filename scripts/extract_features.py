@@ -324,6 +324,16 @@ def feat_dense_optical_flow(prev_img, img, dense_params):
     return np.reshape(flow, (-1, flow.shape[-1]))
 
 
+def feat_freq_dense_optical_flow(prev_img, img, dense_params, n_bins):
+    """Extract "histogram of [dense] flow" features."""
+    flow = feat_dense_optical_flow(prev_img, img, dense_params)
+    flow_y, flow_x = flow[:, 0], flow[:, 1]
+    bins = np.concatenate(([-200.0], np.linspace(OPTFLOW_MIN, OPTFLOW_MAX, n_bins - 1), [200.0]))
+    hist_y, _ = np.histogram(flow_y, bins=bins)
+    hist_x, _ = np.histogram(flow_x, bins=bins)
+    return hist_y, hist_x
+
+
 # ====================
 # - VIDEO PROCESSING -
 # ====================
@@ -471,6 +481,7 @@ def process_video(video_path, save_path=None, config=None):
     use_optical_flow = use_feature('optical_flow', feature_toggles)
     use_freq_optical_flow = use_feature('freq_optical_flow', feature_toggles)
     use_dense_optical_flow = use_feature('dense_optical_flow', feature_toggles)
+    use_freq_dense_optical_flow = use_feature('freq_dense_optical_flow', feature_toggles)
 
     # Load Shi-Tomasi and Lucas-Kanade configs
     st_config = _nondestructive_update(ST_PARAMS, st, disallow_strings=True)
@@ -535,11 +546,14 @@ def process_video(video_path, save_path=None, config=None):
                     if use_freq_optical_flow else 'optical_flow'
                 features_indiv[optflow_k].append(flow)
                 prev_img = frame_edge.copy()
-            elif use_dense_optical_flow:
+            elif use_dense_optical_flow or use_freq_dense_optical_flow:
                 if prev_img is None:
                     top_k = dense_params.get('top_k', None)
                     mres_wind = dense_params.get('mres_wind', None)
-                    if type(top_k) == int:
+                    if use_freq_dense_optical_flow:
+                        features_indiv['dense_optical_flow_y'].append(np.zeros(n_bins))
+                        features_indiv['dense_optical_flow_x'].append(np.zeros(n_bins))
+                    elif type(top_k) == int:
                         features_indiv['dense_optical_flow_y'].append(np.zeros(top_k * 2))
                         features_indiv['dense_optical_flow_x'].append(np.zeros(top_k * 2))
                     elif type(mres_wind) == int:
@@ -550,6 +564,10 @@ def process_video(video_path, save_path=None, config=None):
                         roi_w = int(w * dense_params['roi_w'])
                         features_indiv['dense_optical_flow_y'].append(np.zeros(roi_h * roi_w))
                         features_indiv['dense_optical_flow_x'].append(np.zeros(roi_h * roi_w))
+                elif use_freq_dense_optical_flow:
+                    hist_y, hist_x = feat_freq_dense_optical_flow(prev_img, frame_edge, dense_params, n_bins)
+                    features_indiv['dense_optical_flow_y'].append(hist_y)
+                    features_indiv['dense_optical_flow_x'].append(hist_x)
                 else:
                     flow = feat_dense_optical_flow(prev_img, frame_edge, dense_params)
                     features_indiv['dense_optical_flow_y'].append(flow[:, 0])
@@ -564,7 +582,7 @@ def process_video(video_path, save_path=None, config=None):
 
         # Reduce dimensionality of dense optical flow fields
         for ax in ('y', 'x'):
-            if 'dense_optical_flow_%s' % ax in features_indiv:
+            if 'dense_optical_flow_%s' % ax in features_indiv and not use_freq_dense_optical_flow:
                 n_components = dense_params.get('n_components', None)
                 if type(n_components) == int:
                     pca = PCA(n_components=n_components)

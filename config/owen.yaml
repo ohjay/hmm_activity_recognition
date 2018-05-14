@@ -23,7 +23,8 @@ extract_features:
   feature_toggles:
     optical_flow: False
     freq_optical_flow: False
-    dense_optical_flow: True
+    dense_optical_flow: False
+    freq_dense_optical_flow: True
     edge: True
     centroid: True
   denoise:
@@ -40,7 +41,7 @@ extract_features:
     poly_sigma: 1.2
     n_components: 10  # for dimensionality reduction
     top_k: None
-    mres_wind: 10  # side length of maximum response window
+    mres_wind: None  # side length of maximum response window
   n_bins: 20
   edge_dim: 20
   trim: 1
