@@ -93,7 +93,11 @@ extract_features:
     poly_n: 5
     poly_sigma: 1.2
     # Dimensionality after PCA.
+    # If None, PCA is not used.
     n_components: 20
+    # Number of maximal values to use for each flow direction.
+    # If None, all values are used.
+    top_k: None
 
   # Dimensionality of `freq_optical_flow` feature.
   n_bins: 20

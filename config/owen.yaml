@@ -40,6 +40,7 @@ extract_features:
     poly_n: 5
     poly_sigma: 1.2
     n_components: 10  # for dimensionality reduction
+    top_k: None
   n_bins: 20
   edge_dim: 20
   trim: 1

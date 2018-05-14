@@ -92,6 +92,17 @@ def use_feature(name, feature_toggles, verbose=True):
     return use_or_not
 
 
+def top_k_indices(arr, k):
+    """Returns the top K indices of an array.
+
+    Returns
+    -------
+    indices: array, shape (k,)
+        indices of the top k values in the flattened array
+    """
+    return np.argpartition(arr.ravel(), -k)[-k:]  # alt: np.argsort(arr, axis=None)[-k:]
+
+
 # ======================
 # - FEATURE EXTRACTION -
 # ======================
@@ -310,10 +321,20 @@ def feat_dense_optical_flow(prev_img, img, dense_params):
     iterations = dense_params.get('iterations', 3)
     poly_n = dense_params.get('poly_n', 5)
     poly_sigma = dense_params.get('poly_sigma', 1.2)
+    top_k = dense_params.get('top_k', None)
     flow = cv2.calcOpticalFlowFarneback(
         prev_roi, curr_roi, flow=np.zeros_like(prev_img, dtype=np.float32),
         pyr_scale=pyr_scale, levels=levels, winsize=winsize, iterations=iterations,
         poly_n=poly_n, poly_sigma=poly_sigma, flags=cv2.OPTFLOW_FARNEBACK_GAUSSIAN)
+    if type(top_k) == int:
+        # Only use the maximum K optical flow features (sorted)
+        flow_y = flow[:, :, 0].flatten()
+        flow_x = flow[:, :, 1].flatten()
+        iy = sorted(top_k_indices(flow_y, top_k), key=lambda i: flow_y[i])
+        ix = sorted(top_k_indices(flow_x, top_k), key=lambda i: flow_x[i])
+        flow_y = np.concatenate((flow_y[iy], flow_y[ix]))
+        flow_x = np.concatenate((flow_x[iy], flow_x[ix]))
+        return np.stack((flow_y, flow_x), axis=-1)
     return np.reshape(flow, (-1, flow.shape[-1]))
 
 
@@ -537,10 +558,15 @@ def process_video(video_path, save_path=None, config=None):
                 prev_img = frame_edge.copy()
             elif use_dense_optical_flow:
                 if prev_img is None:
-                    roi_h = int(h * dense_params['roi_h'])
-                    roi_w = int(w * dense_params['roi_w'])
-                    features_indiv['dense_optical_flow_y'].append(np.zeros((roi_h * roi_w)))
-                    features_indiv['dense_optical_flow_x'].append(np.zeros((roi_h * roi_w)))
+                    top_k = dense_params.get('top_k', None)
+                    if type(top_k) == int:
+                        features_indiv['dense_optical_flow_y'].append(np.zeros((top_k * 2)))
+                        features_indiv['dense_optical_flow_x'].append(np.zeros((top_k * 2)))
+                    else:
+                        roi_h = int(h * dense_params['roi_h'])
+                        roi_w = int(w * dense_params['roi_w'])
+                        features_indiv['dense_optical_flow_y'].append(np.zeros((roi_h * roi_w)))
+                        features_indiv['dense_optical_flow_x'].append(np.zeros((roi_h * roi_w)))
                 else:
                     flow = feat_dense_optical_flow(prev_img, frame_edge, dense_params)
                     features_indiv['dense_optical_flow_y'].append(flow[:, 0])
@@ -556,10 +582,12 @@ def process_video(video_path, save_path=None, config=None):
         # Reduce dimensionality of dense optical flow fields
         for ax in ('y', 'x'):
             if 'dense_optical_flow_%s' % ax in features_indiv:
-                pca = PCA(n_components=dense_params.get('n_components'))
-                d_optflow_std = StandardScaler().fit_transform(
-                    np.array(features_indiv['dense_optical_flow_%s' % ax]))
-                features_indiv['dense_optical_flow_%s' % ax] = pca.fit_transform(d_optflow_std)
+                n_components = dense_params.get('n_components', None)
+                if type(n_components) == int:
+                    pca = PCA(n_components=n_components)
+                    d_optflow_std = StandardScaler().fit_transform(
+                        np.array(features_indiv['dense_optical_flow_%s' % ax]))
+                    features_indiv['dense_optical_flow_%s' % ax] = pca.fit_transform(d_optflow_std)
 
         # Normalization
         if normalize:
