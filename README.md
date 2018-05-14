@@ -71,7 +71,6 @@ extract_features:
     freq_optical_flow: False
     dense_optical_flow: True
     edge: True
-    shape: False
     centroid: True
 
   # Noise filtering parameters.

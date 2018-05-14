@@ -27,14 +27,12 @@ MEANS = {
     'optical_flow': 0.0,
     'freq_optical_flow': 0.0,
     'edge': 0.0,
-    'shape': 0.0,
     'centroid': 0.0,
 }
 STDEVS = {
     'optical_flow': 1.0,
     'freq_optical_flow': 1.0,
     'edge': 1.0,
-    'shape': 1.0,
     'centroid': 1.0,
 }
 
@@ -185,36 +183,6 @@ def compute_centroid(img, normalize=False):
     if normalize:
         return np.array([np.mean(_nz_active[0]) / h, np.mean(_nz_active[1]) / w])
     return np.array([np.mean(_nz_active[0]), np.mean(_nz_active[1])])
-
-
-def feat_shape(img, fg_mask):
-    """Extract shape features.
-
-    Parameters
-    ----------
-    img: ndarray
-        grayscale frame to process
-
-    fg_mask: ndarray
-        foreground mask
-
-    Returns
-    -------
-    centroid_diff: ndarray
-        difference of centroids
-    """
-    activepts_grayfg = np.nonzero(img)
-    centroid_grayfg = np.array([activepts_grayfg[0].mean(), activepts_grayfg[1].mean()])
-
-    edges = cv2.Canny(fg_mask, 0, 127)
-    activepts_edges = np.nonzero(edges)
-    centroid_edges = np.array([activepts_edges[0].mean(), activepts_edges[1].mean()])
-
-    centroid_diff = np.subtract(centroid_grayfg, centroid_edges)
-    # TODO: DFT (20 dim) then PCA (8 dim) on D1
-    # I think I need to run DFT on the entire array also
-
-    return centroid_diff
 
 
 def feat_edge(img, edges=None):
@@ -481,7 +449,6 @@ def process_video(video_path, save_path=None, config=None):
 
     # Determine whether to use features
     use_edge = use_feature('edge', feature_toggles)
-    use_shape = use_feature('shape', feature_toggles)
     use_centroid = use_feature('centroid', feature_toggles)
     use_optical_flow = use_feature('optical_flow', feature_toggles)
     use_freq_optical_flow = use_feature('freq_optical_flow', feature_toggles)
@@ -522,12 +489,6 @@ def process_video(video_path, save_path=None, config=None):
             if debug:
                 plt.imshow(fg)
                 plt.show()
-
-            # [FEATURE] Shape
-            # ---------------
-            if use_shape:
-                centroid_diff = feat_shape(frame_gray, fg_mask)
-                features_indiv['shape'].append(centroid_diff)
 
             # [FEATURE] Edge
             # --------------
