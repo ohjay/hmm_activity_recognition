@@ -97,6 +97,9 @@ extract_features:
     # Number of maximal values to use for each flow direction.
     # If None, all values are used.
     top_k: None
+    # Side length of square maximum response window.
+    # If None, the entire ROI shall be considered.
+    mres_wind: None
 
   # Dimensionality of `freq_optical_flow` feature.
   n_bins: 20

@@ -101,6 +101,18 @@ def top_k_indices(arr, k):
     return np.argpartition(arr.ravel(), -k)[-k:]  # alt: np.argsort(arr, axis=None)[-k:]
 
 
+def extract_mres_wind(arr, winsize):
+    """Extract the window of maximum response from ARR (which is presumed to be 2D)."""
+    ones_filter = np.ones((winsize, winsize))
+    wsh = winsize // 2
+    response = signal.fftconvolve(arr, ones_filter, mode='same')
+    max_iy, max_ix = np.unravel_index(response.argmax(), response.shape)
+    arr = np.pad(arr, winsize, 'constant')
+    max_iy += winsize
+    max_ix += winsize
+    return arr[max_iy - wsh:max_iy + wsh, max_ix - wsh:max_ix + wsh]
+
+
 # ======================
 # - FEATURE EXTRACTION -
 # ======================
@@ -290,10 +302,16 @@ def feat_dense_optical_flow(prev_img, img, dense_params):
     poly_n = dense_params.get('poly_n', 5)
     poly_sigma = dense_params.get('poly_sigma', 1.2)
     top_k = dense_params.get('top_k', None)
+    mres_wind = dense_params.get('mres_wind', None)
     flow = cv2.calcOpticalFlowFarneback(
         prev_roi, curr_roi, flow=np.zeros_like(prev_img, dtype=np.float32),
         pyr_scale=pyr_scale, levels=levels, winsize=winsize, iterations=iterations,
         poly_n=poly_n, poly_sigma=poly_sigma, flags=cv2.OPTFLOW_FARNEBACK_GAUSSIAN)
+    if type(mres_wind) == int:
+        # Extract a square window around the region of maximum response
+        wind_y = extract_mres_wind(flow[:, :, 0], mres_wind)
+        wind_x = extract_mres_wind(flow[:, :, 1], mres_wind)
+        flow = np.stack((wind_y, wind_x), axis=-1)
     if type(top_k) == int:
         # Only use the maximum K optical flow features (sorted)
         flow_y = flow[:, :, 0].flatten()
@@ -520,14 +538,18 @@ def process_video(video_path, save_path=None, config=None):
             elif use_dense_optical_flow:
                 if prev_img is None:
                     top_k = dense_params.get('top_k', None)
+                    mres_wind = dense_params.get('mres_wind', None)
                     if type(top_k) == int:
-                        features_indiv['dense_optical_flow_y'].append(np.zeros((top_k * 2)))
-                        features_indiv['dense_optical_flow_x'].append(np.zeros((top_k * 2)))
+                        features_indiv['dense_optical_flow_y'].append(np.zeros(top_k * 2))
+                        features_indiv['dense_optical_flow_x'].append(np.zeros(top_k * 2))
+                    elif type(mres_wind) == int:
+                        features_indiv['dense_optical_flow_y'].append(np.zeros(mres_wind ** 2))
+                        features_indiv['dense_optical_flow_x'].append(np.zeros(mres_wind ** 2))
                     else:
                         roi_h = int(h * dense_params['roi_h'])
                         roi_w = int(w * dense_params['roi_w'])
-                        features_indiv['dense_optical_flow_y'].append(np.zeros((roi_h * roi_w)))
-                        features_indiv['dense_optical_flow_x'].append(np.zeros((roi_h * roi_w)))
+                        features_indiv['dense_optical_flow_y'].append(np.zeros(roi_h * roi_w))
+                        features_indiv['dense_optical_flow_x'].append(np.zeros(roi_h * roi_w))
                 else:
                     flow = feat_dense_optical_flow(prev_img, frame_edge, dense_params)
                     features_indiv['dense_optical_flow_y'].append(flow[:, 0])
