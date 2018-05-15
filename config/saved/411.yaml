@@ -51,7 +51,7 @@ extract_features:
   n_bins: 20
   edge_dim: 20
   trim: 1
-  normalize: True
+  normalize: False
   sequences_path: /Users/owenjow/hmm_activity_recognition/data/kth/sequences.txt
 
 build_models:

@@ -133,10 +133,14 @@ extract_features:
 
   # Whether features should be normalized
   # according to the means and standard deviations at the top of `extract_features.py`.
+  # Set to False to compute global stats for later normalization.
   normalize: True
 
   # Path to the sequences metadata file.
   sequences_path: /Users/owen/hmm_activity_recognition/data/kth/sequences.txt
+
+  # Path to which mean and variance data should be saved.
+  stats_path: /Users/owenjow/hmm_activity_recognition/data/kth/norm_stats.pkl
 
 
 build_models:

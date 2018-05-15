@@ -8,6 +8,7 @@ import numpy as np
 from scipy import signal
 import matplotlib.pyplot as plt
 from collections import defaultdict
+from sklearn.externals import joblib
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 from .dataset_utils import read_sequences_file
@@ -27,19 +28,6 @@ CURL_MIN = -10.0
 CURL_MAX = 10.0
 
 NORMALIZE_FEAT_CENTROID = True
-
-MEANS = {
-    'optical_flow': 0.0,
-    'freq_optical_flow': 0.0,
-    'edge': 0.0,
-    'centroid': 0.0,
-}
-STDEVS = {
-    'optical_flow': 1.0,
-    'freq_optical_flow': 1.0,
-    'edge': 1.0,
-    'centroid': 1.0,
-}
 
 # Parameters for Shi-Tomasi corner detection
 ST_PARAMS = dict(maxCorners=100, qualityLevel=0.3, minDistance=7, blockSize=7)
@@ -116,6 +104,60 @@ def extract_mres_wind(arr, winsize):
     max_iy += winsize
     max_ix += winsize
     return arr[max_iy - wsh:max_iy + wsh, max_ix - wsh:max_ix + wsh]
+
+
+def combine_means(new_mean, new_count, curr_mean, curr_count):
+    """Calculate the overall mean."""
+    if curr_mean is None or curr_count == 0:
+        return new_mean
+    return float(new_mean * new_count + curr_mean * curr_count) / (new_count + curr_count)
+
+
+def combine_variances(new_mean, new_var, new_count, curr_mean, curr_var, curr_count, overall_mean):
+    """Calculate the overall variance.
+    Formula reference: https://stats.stackexchange.com/a/10445.
+    """
+    if curr_var is None or curr_count == 0:
+        return new_var
+    term0 = (new_count - 1) * new_var + (curr_count - 1) * curr_var
+    term1 = new_count * ((new_mean - overall_mean) ** 2) \
+            + curr_count * ((curr_mean - overall_mean) ** 2)
+    return float(term0 + term1) / (new_count + curr_count - 1)
+
+
+def save_stats(stats_path, means, variances, counts):
+    """Saves stats to STATS_PATH."""
+    stats = {
+        'means': means,
+        'variances': variances,
+        'counts': counts,
+    }
+    joblib.dump(stats, stats_path)
+    print('[+] Successfully saved stats to `%s`.' % stats_path)
+
+
+def load_stats(stats_path):
+    """Loads stats from STATS_PATH.
+
+    Returns
+    -------
+    means: dict
+        dictionary of lifetime means for each feature
+
+    variances: dict
+        dictionary of lifetime variances for each feature
+
+    counts: dict
+        dictionary of lifetime counts for each feature
+    """
+    if stats_path is None:
+        return {}, {}, {}
+    try:
+        stats = joblib.load(stats_path)
+    except IOError:
+        return {}, {}, {}
+    print('[+] Successfully loaded stats from `%s`.' % stats_path)
+    return stats['means'], stats['variances'], stats['counts']
 
 
 # ======================
@@ -509,6 +551,10 @@ def process_video(video_path, save_path=None, config=None):
             seq_info.update(read_sequences_file(sequences_path))
     frame_limits = seq_info.get(os.path.split(video_path)[-1], None)
 
+    # Load lifetime mean and standard deviation data
+    stats_path = config.get('stats_path', None)
+    means, variances, counts = load_stats(stats_path)
+
     # Process config
     if config is None:
         config = {}
@@ -684,12 +730,22 @@ def process_video(video_path, save_path=None, config=None):
             curl_std = StandardScaler().fit_transform(np.array(features_indiv['curl']))
             features_indiv['curl'] = pca.fit_transform(curl_std)
 
-        # Normalization
-        if normalize:
-            for k, v in features_indiv.items():
-                _mean = MEANS.get(k, 0.0)
-                _stdev = STDEVS.get(k, 1.0)
-                features_indiv[k] = (np.array(v) - _mean) / _stdev
+        # Normalization and stats computation
+        for k, v in features_indiv.items():
+            if normalize:
+                _mean = means.get(k, 0.0)
+                _stdev = np.sqrt(variances.get(k, 1.0))
+                features_indiv[k] = (np.array(v) - _mean) / float(_stdev)
+            else:
+                v_size = np.array(v).size
+                curr_mean = means.get(k, None)
+                curr_count = counts.get(k, 0)
+                means[k] = combine_means(np.mean(v), v_size, curr_mean, curr_count)
+                variances[k] = combine_variances(np.mean(v), np.var(v), v_size,
+                                                 curr_mean, variances.get(k, None), curr_count, means[k])
+                counts[k] = curr_count + v_size
+        if not normalize:
+            save_stats(stats_path, means, variances, counts)
 
         # Feature combination
         # -------------------
