@@ -127,13 +127,14 @@ def combine_variances(new_mean, new_var, new_count, curr_mean, curr_var, curr_co
 
 def save_stats(stats_path, means, variances, counts):
     """Saves stats to STATS_PATH."""
-    stats = {
-        'means': means,
-        'variances': variances,
-        'counts': counts,
-    }
-    joblib.dump(stats, stats_path)
-    print('[+] Successfully saved stats to `%s`.' % stats_path)
+    if stats_path is not None:
+        stats = {
+            'means': means,
+            'variances': variances,
+            'counts': counts,
+        }
+        joblib.dump(stats, stats_path)
+        print('[+] Successfully saved stats to `%s`.' % stats_path)
 
 
 def load_stats(stats_path):

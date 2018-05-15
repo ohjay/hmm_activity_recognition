@@ -69,12 +69,12 @@ extract_features:
   feature_toggles:
     optical_flow: False
     freq_optical_flow: False
-    dense_optical_flow: True
+    dense_optical_flow: False
     # If True, PCA will not be applied.
-    freq_dense_optical_flow: False
-    divergence: False
-    curl: False
-    avg_velocity: False
+    freq_dense_optical_flow: True
+    divergence: True
+    curl: True
+    avg_velocity: True
     edge: True
     centroid: True
 
@@ -131,10 +131,9 @@ extract_features:
   # Amount by which frames should be trimmed (at the beginning and the end).
   trim: 1
 
-  # Whether features should be normalized
-  # according to the means and standard deviations at the top of `extract_features.py`.
+  # Whether features should be normalized.
   # Set to False to compute global stats for later normalization.
-  normalize: True
+  normalize: False
 
   # Path to the sequences metadata file.
   sequences_path: /Users/owen/hmm_activity_recognition/data/kth/sequences.txt
