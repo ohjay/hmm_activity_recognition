@@ -2,11 +2,17 @@
 # HMM Activity Recognition - Config File
 # --------------------------------------
 
+# boxing:       0.80556
+# handclapping: 0.66667
+# handwaving:   0.80556
+# jogging:      0.75000
+# running:      0.69444
+# walking:      0.55556  -> total: 4.28
+
 # Modes
 # --------------------------------------
 
 extract_features:
-  # video_path: /Users/owenjow/hmm_activity_recognition/data/kth/train/walking/person01_walking_d4_uncomp.avi
   base_dir: /Users/owenjow/hmm_activity_recognition/data/kth/train
   save_path: /Users/owenjow/hmm_activity_recognition/features
   debug: False
