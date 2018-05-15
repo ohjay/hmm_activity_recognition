@@ -72,6 +72,9 @@ extract_features:
     dense_optical_flow: True
     # If True, PCA will not be applied.
     freq_dense_optical_flow: False
+    divergence: False
+    curl: False
+    avg_velocity: False
     edge: True
     centroid: True
 
@@ -102,6 +105,22 @@ extract_features:
     # Side length of square maximum response window.
     # If None, the entire ROI shall be considered.
     mres_wind: None
+
+  # Divergence parameters.
+  div_params:
+    # If None, all divergence values are used
+    # (instead of taking a histogram of divergence values).
+    n_bins: None
+    # If None, PCA is not used.
+    pca_dim: 8
+
+  # Curl parameters.
+  curl_params:
+    # If None, all curl values are used
+    # (instead of taking a histogram of curl values).
+    n_bins: None
+    # If None, PCA is not used.
+    pca_dim: 8
 
   # Dimensionality of `freq_optical_flow` feature.
   n_bins: 20

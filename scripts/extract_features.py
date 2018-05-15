@@ -21,6 +21,11 @@ from .dataset_utils import read_sequences_file
 OPTFLOW_MIN = -1.0
 OPTFLOW_MAX = 1.0
 
+DIV_MIN = -10.0
+DIV_MAX = 10.0
+CURL_MIN = -10.0
+CURL_MAX = 10.0
+
 NORMALIZE_FEAT_CENTROID = True
 
 MEANS = {
@@ -197,6 +202,39 @@ def compute_centroid(img, normalize=False):
     return np.array([np.mean(_nz_active[0]), np.mean(_nz_active[1])])
 
 
+def compute_dense_optical_flow(prev_img, img, dense_params):
+    """Return the dense optical flow field as a (width, height, 2) array."""
+    # Extract ROI
+    h, w = img.shape
+    roi_h = int(h * dense_params['roi_h'])
+    roi_w = int(w * dense_params['roi_w'])
+    prev_padded = np.pad(prev_img, ((roi_h, roi_h), (roi_w, roi_w)), 'wrap')
+    curr_padded = np.pad(img, ((roi_h, roi_h), (roi_w, roi_w)), 'wrap')
+    cy, cx = compute_centroid(img)
+    cy, cx = int(cy) + roi_h, int(cx) + roi_w
+    prev_roi = prev_padded[cy-roi_h/2:cy+roi_h/2, cx-roi_w/2:cx+roi_w/2]
+    curr_roi = curr_padded[cy-roi_h/2:cy+roi_h/2, cx-roi_w/2:cx+roi_w/2]
+
+    # Compute dense optical flow using Farneback's algorithm
+    pyr_scale = dense_params.get('pyr_scale', 0.5)
+    levels = dense_params.get('levels', 3)
+    winsize = dense_params.get('winsize', 15)
+    iterations = dense_params.get('iterations', 3)
+    poly_n = dense_params.get('poly_n', 5)
+    poly_sigma = dense_params.get('poly_sigma', 1.2)
+    mres_wind = dense_params.get('mres_wind', None)
+    flow = cv2.calcOpticalFlowFarneback(
+        prev_roi, curr_roi, flow=np.zeros_like(prev_img, dtype=np.float32),
+        pyr_scale=pyr_scale, levels=levels, winsize=winsize, iterations=iterations,
+        poly_n=poly_n, poly_sigma=poly_sigma, flags=cv2.OPTFLOW_FARNEBACK_GAUSSIAN)
+    if type(mres_wind) == int:
+        # Extract a square window around the region of maximum response
+        wind_y = extract_mres_wind(flow[:, :, 0], mres_wind)
+        wind_x = extract_mres_wind(flow[:, :, 1], mres_wind)
+        flow = np.stack((wind_y, wind_x), axis=-1)
+    return flow
+
+
 def feat_edge(img, edges=None):
     """Extract edge features.
     This consists of the centroid-centered edge representation.
@@ -283,35 +321,8 @@ def feat_dense_optical_flow(prev_img, img, dense_params):
     """Extract dense optical flow features.
     Returns a flow over a ROI whose dimensions are specified by DENSE_PARAMS.
     """
-    # Extract ROI
-    h, w = img.shape
-    roi_h = int(h * dense_params['roi_h'])
-    roi_w = int(w * dense_params['roi_w'])
-    prev_padded = np.pad(prev_img, ((roi_h, roi_h), (roi_w, roi_w)), 'wrap')
-    curr_padded = np.pad(img, ((roi_h, roi_h), (roi_w, roi_w)), 'wrap')
-    cy, cx = compute_centroid(img)
-    cy, cx = int(cy) + roi_h, int(cx) + roi_w
-    prev_roi = prev_padded[cy-roi_h/2:cy+roi_h/2, cx-roi_w/2:cx+roi_w/2]
-    curr_roi = curr_padded[cy-roi_h/2:cy+roi_h/2, cx-roi_w/2:cx+roi_w/2]
-
-    # Compute dense optical flow using Farneback's algorithm
-    pyr_scale = dense_params.get('pyr_scale', 0.5)
-    levels = dense_params.get('levels', 3)
-    winsize = dense_params.get('winsize', 15)
-    iterations = dense_params.get('iterations', 3)
-    poly_n = dense_params.get('poly_n', 5)
-    poly_sigma = dense_params.get('poly_sigma', 1.2)
     top_k = dense_params.get('top_k', None)
-    mres_wind = dense_params.get('mres_wind', None)
-    flow = cv2.calcOpticalFlowFarneback(
-        prev_roi, curr_roi, flow=np.zeros_like(prev_img, dtype=np.float32),
-        pyr_scale=pyr_scale, levels=levels, winsize=winsize, iterations=iterations,
-        poly_n=poly_n, poly_sigma=poly_sigma, flags=cv2.OPTFLOW_FARNEBACK_GAUSSIAN)
-    if type(mres_wind) == int:
-        # Extract a square window around the region of maximum response
-        wind_y = extract_mres_wind(flow[:, :, 0], mres_wind)
-        wind_x = extract_mres_wind(flow[:, :, 1], mres_wind)
-        flow = np.stack((wind_y, wind_x), axis=-1)
+    flow = compute_dense_optical_flow(prev_img, img, dense_params)
     if type(top_k) == int:
         # Only use the maximum K optical flow features (sorted)
         flow_y = flow[:, :, 0].flatten()
@@ -332,6 +343,47 @@ def feat_freq_dense_optical_flow(prev_img, img, dense_params, n_bins):
     hist_y, _ = np.histogram(flow_y, bins=bins)
     hist_x, _ = np.histogram(flow_x, bins=bins)
     return hist_y, hist_x
+
+
+def feat_divergence(flow=None, prev_img=None, img=None, dense_params=None, n_bins=None):
+    """Extract the divergence of the dense flow field.
+    Provide either an existing DENSE_FLOW or the arguments necessary to compute a dense flow.
+    """
+    if flow is None:
+        flow = compute_dense_optical_flow(prev_img, img, dense_params)
+    dv_dy, dv_dx = np.gradient(flow[:, :, 0])
+    du_dy, du_dx = np.gradient(flow[:, :, 1])
+    div = du_dx + dv_dy
+    if type(n_bins) == int:
+        bins = np.concatenate(([-500.0], np.linspace(DIV_MIN, DIV_MAX, n_bins - 1), [500.0]))
+        div, _ = np.histogram(div, bins=bins)
+    return div.flatten(), flow
+
+
+def feat_curl(flow=None, prev_img=None, img=None, dense_params=None, n_bins=None):
+    """Extract the curl of the dense flow field.
+    Provide either an existing DENSE_FLOW or the arguments necessary to compute a dense flow.
+    """
+    if flow is None:
+        flow = compute_dense_optical_flow(prev_img, img, dense_params)
+    dv_dy, dv_dx = np.gradient(flow[:, :, 0])
+    du_dy, du_dx = np.gradient(flow[:, :, 1])
+    curl = dv_dx - du_dy
+    if type(n_bins) == int:
+        bins = np.concatenate(([-500.0], np.linspace(CURL_MIN, CURL_MAX, n_bins - 1), [500.0]))
+        curl, _ = np.histogram(curl, bins=bins)
+    return curl.flatten(), flow
+
+
+def feat_avg_velocity(flow=None, prev_img=None, img=None, dense_params=None):
+    """Extract the average velocity of the dense flow field.
+    Provide either an existing DENSE_FLOW or the arguments necessary to compute a dense flow.
+    """
+    if flow is None:
+        flow = compute_dense_optical_flow(prev_img, img, dense_params)
+    avg_y = np.mean(flow[:, :, 0])
+    avg_x = np.mean(flow[:, :, 1])
+    return np.array([avg_y, avg_x]), flow
 
 
 # ====================
@@ -474,6 +526,12 @@ def process_video(video_path, save_path=None, config=None):
     edge_dim = config.get('edge_dim', 20)
     normalize = config.get('normalize', True)
     dense_params = config.get('dense_params', None)  # must be defined if using dense opt flow
+    div_params = config.get('div_params', {})
+    div_n_bins = div_params.get('n_bins', None)
+    div_pca_dim = div_params.get('pca_dim', None)
+    curl_params = config.get('curl_params', {})
+    curl_n_bins = curl_params.get('n_bins', None)
+    curl_pca_dim = curl_params.get('pca_dim', None)
 
     # Determine whether to use features
     use_edge = use_feature('edge', feature_toggles)
@@ -482,6 +540,9 @@ def process_video(video_path, save_path=None, config=None):
     use_freq_optical_flow = use_feature('freq_optical_flow', feature_toggles)
     use_dense_optical_flow = use_feature('dense_optical_flow', feature_toggles)
     use_freq_dense_optical_flow = use_feature('freq_dense_optical_flow', feature_toggles)
+    use_divergence = use_feature('divergence', feature_toggles)
+    use_curl = use_feature('curl', feature_toggles)
+    use_avg_velocity = use_feature('avg_velocity', feature_toggles)
 
     # Load Shi-Tomasi and Lucas-Kanade configs
     st_config = _nondestructive_update(ST_PARAMS, st, disallow_strings=True)
@@ -496,6 +557,7 @@ def process_video(video_path, save_path=None, config=None):
     avg = None
     prev_img = None
     p0 = None
+    flow_cached = None
     n_features = -1
     idx = 0
     try:
@@ -526,6 +588,7 @@ def process_video(video_path, save_path=None, config=None):
                 features_indiv['edge'].append(edge_result)
 
             # [FEATURE] Centroid
+            # ------------------
             if use_centroid:
                 features_indiv['centroid'].append(feat_centroid(frame_edge))
 
@@ -545,7 +608,6 @@ def process_video(video_path, save_path=None, config=None):
                 optflow_k = 'freq_optical_flow' \
                     if use_freq_optical_flow else 'optical_flow'
                 features_indiv[optflow_k].append(flow)
-                prev_img = frame_edge.copy()
             elif use_dense_optical_flow or use_freq_dense_optical_flow:
                 if prev_img is None:
                     top_k = dense_params.get('top_k', None)
@@ -572,7 +634,29 @@ def process_video(video_path, save_path=None, config=None):
                     flow = feat_dense_optical_flow(prev_img, frame_edge, dense_params)
                     features_indiv['dense_optical_flow_y'].append(flow[:, 0])
                     features_indiv['dense_optical_flow_x'].append(flow[:, 1])
-                prev_img = frame_edge.copy()
+
+            # [FEATURE] Divergence
+            # --------------------
+            if use_divergence:
+                if prev_img is None:
+                    prev_img = frame_edge.copy()
+                div, flow_cached = feat_divergence(
+                    prev_img=prev_img, img=frame_edge, dense_params=dense_params, n_bins=div_n_bins)
+                features_indiv['divergence'].append(div)
+
+            # [FEATURE] Curl
+            # --------------
+            if use_curl:
+                curl, flow_cached = feat_curl(flow=flow_cached, n_bins=curl_n_bins)
+                features_indiv['curl'].append(curl)
+
+            # [FEATURE] Average velocity
+            # --------------------------
+            if use_avg_velocity:
+                avg_velocity, flow_cached = feat_avg_velocity(flow=flow_cached)
+                features_indiv['avg_velocity'].append(avg_velocity)
+
+            prev_img = frame_edge.copy()
 
         # Reduce dimensionality of edges
         if 'edge' in features_indiv:
@@ -589,6 +673,16 @@ def process_video(video_path, save_path=None, config=None):
                     d_optflow_std = StandardScaler().fit_transform(
                         np.array(features_indiv['dense_optical_flow_%s' % ax]))
                     features_indiv['dense_optical_flow_%s' % ax] = pca.fit_transform(d_optflow_std)
+
+        # Reduce dimensionality of divergence and curl
+        if 'divergence' in features_indiv and type(div_pca_dim) == int:
+            pca = PCA(n_components=div_pca_dim)
+            div_std = StandardScaler().fit_transform(np.array(features_indiv['divergence']))
+            features_indiv['divergence'] = pca.fit_transform(div_std)
+        if 'curl' in features_indiv and type(curl_pca_dim) == int:
+            pca = PCA(n_components=curl_pca_dim)
+            curl_std = StandardScaler().fit_transform(np.array(features_indiv['curl']))
+            features_indiv['curl'] = pca.fit_transform(curl_std)
 
         # Normalization
         if normalize:
