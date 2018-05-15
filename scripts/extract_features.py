@@ -203,7 +203,7 @@ def compute_centroid(img, normalize=False):
 
 
 def compute_dense_optical_flow(prev_img, img, dense_params):
-    """Return the dense optical flow field as a (width, height, 2) array."""
+    """Return the dense optical flow field as a (height, width, 2) array."""
     # Extract ROI
     h, w = img.shape
     roi_h = int(h * dense_params['roi_h'])
