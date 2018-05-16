@@ -139,7 +139,7 @@ extract_features:
   sequences_path: /Users/owen/hmm_activity_recognition/data/kth/sequences.txt
 
   # Path to which mean and variance data should be saved.
-  stats_path: /Users/owenjow/hmm_activity_recognition/data/kth/norm_stats.pkl
+  stats_path: /Users/owen/hmm_activity_recognition/data/kth/norm_stats.pkl
 
 
 build_models:

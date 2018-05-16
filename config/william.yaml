@@ -64,4 +64,3 @@ classify_activity:
   model_dir: /home/wjow/school/compsci/ee126/proj/hmm_activity_recognition/models/
   eval_fraction: 1.0
   n_features: infer
-        

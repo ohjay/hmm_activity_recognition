@@ -366,5 +366,3 @@ class GaussianHMM:
                                                                 ends[-1]))
             for i in range(len(lengths)):
                 yield starts[i], ends[i]
-
-
