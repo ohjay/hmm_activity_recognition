@@ -4,13 +4,14 @@ EE 126 project, with William Jow and David Lin. [[Report]](http://owenjow.xyz/hm
 
 ## Usage
 
-To download the KTH dataset, run `./get_data.sh`.
-You may want to split the data into train and test subsets,
-which we have hitherto done manually on our end. Note that the
-[sequences metadata file](http://www.nada.kth.se/cvap/actions/00sequences.txt)
-will need to be obtained separately. Do not rename the files or tamper with
-the directory structure, as the program parses activities from filenames and
-expects a data folder with six subfolders in it (one for each activity's videos).
+To download the [KTH dataset](http://www.nada.kth.se/cvap/actions),
+run `./get_data.sh`. By default, the script will download the KTH videos,
+[sequences metadata file](http://www.nada.kth.se/cvap/actions/00sequences.txt),
+and precomputed normalization statistics. It will also split the data into train and test subsets.
+Do not rename the files or tamper with the directory structure, as the program parses activities
+from filenames and expects a data folder with six subfolders in it (one for each activity's videos).
+
+Once you have the data, you can run the following commands with `config/quickstart.yaml` as `<path to config>`.
 
 ```
 python main.py extract  <path to config>  # extract features

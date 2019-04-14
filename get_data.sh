@@ -3,6 +3,8 @@
 # Flags
 GET_KTH=true
 GET_WEIZMANN=false
+GET_KTH_NORM_STATS=true
+SET_UP_KTH_TRAIN_TEST_SPLIT=true
 
 mkdir -p data
 
@@ -22,6 +24,30 @@ if [ "$GET_KTH" = true ]; then
     unzip -d "./$dir" "./$f"
     rm $f
   done
+
+  wget -O data/kth/sequences.txt http://www.nada.kth.se/cvap/actions/00sequences.txt
+
+  if [ "$SET_UP_KTH_TRAIN_TEST_SPLIT" = true ]; then
+    echo "Configuring KTH train/test split..."
+    for action in walking jogging running boxing handwaving handclapping; do
+      mkdir -p data/kth/train/${action}
+      for i in $(seq -f "%02g" 1 16); do
+        mv data/kth/${action}/person${i}* data/kth/train/${action}
+      done
+      mkdir -p data/kth/test/${action}
+      for i in $(seq -f "%02g" 17 25); do
+        mv data/kth/${action}/person${i}* data/kth/test/${action}
+      done
+      rmdir data/kth/${action}
+    done
+  fi
+
+  if [ "$GET_KTH_NORM_STATS" = true ]; then
+    echo "Getting precomputed KTH norm stats..."
+    wget -P data/kth https://github.com/ohjay/hmm_activity_recognition/files/3036370/norm_stats.zip --no-check-certificate
+    unzip -d data/kth data/kth/norm_stats.zip
+    rm data/kth/norm_stats.zip
+  fi
 fi
 
 # Get Weizmann

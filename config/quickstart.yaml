@@ -1,0 +1,92 @@
+# --------------------------------------
+# HMM Activity Recognition - Config File
+# --------------------------------------
+
+# Modes
+# --------------------------------------
+
+extract_features:
+  base_dir: data/kth/train
+  save_path: features
+  debug: False
+  verbose: False
+  fg_handler: 0
+  st:
+    maxCorners: 200
+    qualityLevel: 0.05
+    minDistance: 3
+    blockSize: 10
+  lk:
+    winSize: (15, 15)
+    maxLevel: 2
+  feature_toggles:
+    optical_flow: False
+    freq_optical_flow: False
+    dense_optical_flow: False
+    freq_dense_optical_flow: True
+    divergence: True
+    curl: True
+    avg_velocity: True
+    edge: True
+    centroid: True
+  denoise:
+    kernel_size: 5
+    threshold: 3
+  dense_params:
+    roi_h: 0.8
+    roi_w: 0.4
+    pyr_scale: 0.5
+    levels: 3
+    winsize: 15
+    iterations: 3
+    poly_n: 5
+    poly_sigma: 1.2
+    n_components: 10  # for dimensionality reduction
+    top_k: None
+    mres_wind: None  # side length of maximum response window
+  div_params:
+    n_bins: None
+    pca_dim: 8
+  curl_params:
+    n_bins: None
+    pca_dim: 8
+  n_bins: 20
+  edge_dim: 20
+  trim: 1
+  normalize: True
+  sequences_path: data/kth/sequences.txt
+  stats_path: data/kth/norm_stats.pkl
+
+build_models:
+  h5_dir: features
+  model_dir: models
+  n_features: infer  # only need to use this if `optical_flow` is one of the features
+  compute_stats: False
+  mconf:  # configs for each model
+    - n_components: 4
+      n_iter: 20
+      m_type: gmm
+      subsample: 0.5
+    - n_components: 4
+      n_iter: 20
+      m_type: gmm
+      subsample: 0.6
+    - n_components: 4
+      n_iter: 20
+      m_type: gmm
+      subsample: 0.7
+    - n_components: 4
+      n_iter: 20
+      m_type: gmm
+      subsample: 0.8
+    - n_components: 4
+      n_iter: 20
+      m_type: gmm
+      subsample: 0.9
+
+classify_activity:
+  all: True
+  path: data/kth/test
+  model_dir: models
+  eval_fraction: 1.0
+  n_features: infer
