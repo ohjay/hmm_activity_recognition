@@ -6,6 +6,8 @@ import skvideo.io
 import h5py
 import numpy as np
 from scipy import signal
+import matplotlib
+matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 from collections import defaultdict
 from sklearn.externals import joblib

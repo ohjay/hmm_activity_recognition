@@ -3,3 +3,4 @@ data/
 .idea/
 features/
 models/
+hmm-activity-recog-env/
