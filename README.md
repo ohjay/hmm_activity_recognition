@@ -19,6 +19,8 @@ python main.py build    <path to config>  # build models
 python main.py classify <path to config>  # classify activity
 ```
 
+**Important:** install dependencies according to [`requirements.txt`](https://github.com/ohjay/hmm_activity_recognition/blob/master/requirements.txt). Other versions of the modules are not officially supported, and may or may not work. (For example, it is probably okay to upgrade NumPy, but not `hmmlearn` or `scikit-learn`.) If you want to use a virtual environment (recommended), you may find [`quickstart.sh`](https://github.com/ohjay/hmm_activity_recognition/blob/master/quickstart.sh) helpful as a reference.
+
 ## Config
 
 From a user perspective, the program is almost entirely specified by the input config file.

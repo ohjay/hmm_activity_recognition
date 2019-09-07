@@ -4,3 +4,4 @@ data/
 features/
 models/
 hmm-activity-recog-env/
+.DS_Store

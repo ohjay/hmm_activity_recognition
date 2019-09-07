@@ -182,8 +182,8 @@ In defining the encoding, we emulate previous approaches (e.g. Kolekar and Dash 
 \begin{algorithmic}[1]
 \State For each frame $F$ in video:
     \State \indent $G$ $\leftarrow$ grayscaled $F$
-    \State \indent Edge image $E$ $\leftarrow$ Canny edge detection on F
-    \State \indent Foreground $O$ $\leftarrow$ F minus background
+    \State \indent Edge image $E$ $\leftarrow$ Canny edge detection on $F$
+    \State \indent Foreground $O$ $\leftarrow$ $F$ minus background
     \State \indent Compute edge features on $O$
     \State \indent Compute centroid features on $O$
     \State \indent Compute optical flow features on $E_{prev}$, $E_{curr}$

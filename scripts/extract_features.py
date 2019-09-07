@@ -257,8 +257,8 @@ def compute_dense_optical_flow(prev_img, img, dense_params):
     curr_padded = np.pad(img, ((roi_h, roi_h), (roi_w, roi_w)), 'wrap')
     cy, cx = compute_centroid(img)
     cy, cx = int(cy) + roi_h, int(cx) + roi_w
-    prev_roi = prev_padded[cy-roi_h/2:cy+roi_h/2, cx-roi_w/2:cx+roi_w/2]
-    curr_roi = curr_padded[cy-roi_h/2:cy+roi_h/2, cx-roi_w/2:cx+roi_w/2]
+    prev_roi = prev_padded[cy-roi_h//2:cy+roi_h//2, cx-roi_w//2:cx+roi_w//2]
+    curr_roi = curr_padded[cy-roi_h//2:cy+roi_h//2, cx-roi_w//2:cx+roi_w//2]
 
     # Compute dense optical flow using Farneback's algorithm
     pyr_scale = dense_params.get('pyr_scale', 0.5)
